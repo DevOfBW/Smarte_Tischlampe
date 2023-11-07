@@ -1,6 +1,6 @@
 #include <Arduino.h>
-#include "avr8-stub.h"
-#include "app_api.h" //only needed with flash breakpoints
+//#include "avr8-stub.h"
+//#include "app_api.h" //only needed with flash breakpoints
 #include <Adafruit_NeoPixel.h>
 #include <avr/power.h>
 
@@ -16,6 +16,7 @@
 // Funktionen:
 int RGB_Licht_Funktion(int, int, int, int, int, int); //(Pixel,R,G,B,Helligkeit,Modus)
 int Signalgeber(int, int); //(An, Modus)
+int Gestensensor(); //Gestensensor
 
 
 // Objekte:
@@ -35,9 +36,9 @@ Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ8
 // Diese Mehtode wird einmalig zum Programmstart ausgeführt
 void setup() 
 {
-  //Allgemein:
-  debug_init(); //AUFRUF IST NOTWENDIG UM DEBUGGER ZU STARTEN
-  //Serial.begin(9600); //Iinitialisierung von Serieller Verbindung um Ergebnisse anzuzeigen auf Konsole
+
+  //debug_init(); //AUFRUF IST NOTWENDIG UM DEBUGGER ZU STARTEN
+  Serial.begin(9600); //Iinitialisierung von Serieller Verbindung um Ergebnisse anzuzeigen auf Konsole
 
   //Neopixel
   strip_IndLi.begin(); 
@@ -65,52 +66,10 @@ void loop()
   //RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
   //Signalgeber(0,0);
 
-   uint8_t gesture;//unsigned 8-bit integer
-  int error = paj7620ReadReg(0x43,1,&gesture);
+}
 
-  if(!error)
-  {
-    switch(gesture)
-    {
-      case GES_RIGHT_FLAG:
-        Serial.println("Right gesture");
-        break;
-
-      case GES_LEFT_FLAG:
-        Serial.println("Left gesture");
-        break;
-
-      case GES_UP_FLAG:
-        Serial.println("Up gesture");
-        break;
-
-      case GES_DOWN_FLAG:
-        Serial.println("Down gesture");
-        break;
-
-      case GES_FORWARD_FLAG:
-        Serial.println("Forward gesture");
-        break;
-
-      case GES_BACKWARD_FLAG:
-        Serial.println("Backward gesture");
-        break;
-
-      case GES_CLOCKWISE_FLAG:
-        Serial.println("Clockwise gesture");
-        break;
-
-      case GES_COUNT_CLOCKWISE_FLAG:
-        Serial.println("Count Clockwise gesture");
-        break;
-
-      default:
-        break;
-    }
-  }else{
-    Serial.println("Gestensensor hat ein Problem: ");
-    Serial.println(error);
-  }
+int Gestensensor()
+{
 
 }
 
