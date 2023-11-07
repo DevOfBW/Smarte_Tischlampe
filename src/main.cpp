@@ -5,7 +5,7 @@
 #include <avr/power.h>
 
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
-#include <paj7620.h>
+#include "RevEng_PAJ7620.h"
 
 
 // Variablen:
@@ -30,6 +30,9 @@ Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ8
 // NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 // NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
 
+//Gestensensorobjekt
+RevEng_PAJ7620 sensor = RevEng_PAJ7620();
+
 
 
 // Setupmethode, diese Methode beeinhaltet alle Grundeinstellungen z.B. ob ein Kanal ein Eingang oder Ausgang ist. 
@@ -48,14 +51,16 @@ void setup()
   pinMode(4, OUTPUT);
 
   //Gestensensor
-   int error= paj7620Init();
-  if(error)
+  Serial.println("PAJ7620 sensor demo: Recognizing all 9 gestures.");
+
+  if( !sensor.begin() )           // return value of 0 == success
   {
-    Serial.print("Initilisierung Gestenseuerung fehlgeschlagen:");
-    Serial.println(error);
-  }else{
-    Serial.println("Gestensensor ist ready");
+    Serial.print("PAJ7620 I2C error - halting");
+    while(true) { }
   }
+
+  Serial.println("PAJ7620 init: OK");
+  Serial.println("Please input your gestures:");
  
 }
 
@@ -65,12 +70,79 @@ void loop()
 {
   //RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
   //Signalgeber(0,0);
+  Gestensensor();
 
 }
 
 int Gestensensor()
 {
+Gesture gesture;                  // Gesture is an enum type from RevEng_PAJ7620.h
+  gesture = sensor.readGesture();   // Read back current gesture (if any) of type Gesture
 
+  switch (gesture)
+  {
+    case GES_FORWARD:
+      {
+        Serial.println("GES_FORWARD");
+        break;
+      }
+
+    case GES_BACKWARD:
+      {
+        Serial.println("GES_BACKWARD");
+        break;
+      }
+
+    case GES_LEFT:
+      {
+        Serial.println("GES_LEFT");
+        break;
+      }
+
+    case GES_RIGHT:
+      {
+        Serial.println("GES_RIGHT");
+        break;
+      }
+
+    case GES_UP:
+      {
+        Serial.println("GES_UP");
+        break;
+      }
+
+    case GES_DOWN:
+      {
+        Serial.println("GES_DOWN");
+        break;
+      }
+
+    case GES_CLOCKWISE:
+      {
+        Serial.println("GES_CLOCKWISE");
+        break;
+      }
+
+    case GES_ANTICLOCKWISE:
+      {
+        Serial.println("GES_ANTICLOCKWISE");
+        break;
+      }
+
+    case GES_WAVE:
+      {
+        Serial.println("GES_WAVE");
+        break;
+      }
+
+    case GES_NONE:
+      {
+        break;
+      }
+  }
+
+  delay(100);
+  return 1;
 }
 
 int Signalgeber(int an, int modi)
