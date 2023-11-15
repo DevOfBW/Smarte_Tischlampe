@@ -82,44 +82,27 @@ void setup()
   Serial.println("Please input your gestures:"); */
 
   //DCF77  
-  /*pinMode(PIN_LED, OUTPUT);
+  pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_schalter, OUTPUT);
   digitalWrite(PIN_schalter, LOW);
   Serial.begin(9600); 
   DCF.Start();
   Serial.println("Warten auf DCF77-Zeit... ");
   Serial.println("Dies dauert mindestens 2 Minuten, in der Regel eher länger.");
-  delay(2000); */
+  delay(2000); 
 }
 
 
 // Main-Code-Schleife, diese Methode wird ständig wiederholt
 void loop() 
 {
-  //RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
+  RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
   //Signalgeber(0,0);
   //Gestensensor();
-  //DCF77();
-
-
-  RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
-
-
-}
-
-int LDR_Messung()
-{
-  helligkeit = analogRead(0);
-  Serial.println(helligkeit);
-  delay(500);
+  //RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
   
-  return helligkeit;
-}
-
-void DCF77()
-{
-   // das Signal wird nur aller 5 Sekunden abgefragt
-  delay(950);
+// das Signal wird nur aller 5 Sekunden abgefragt
+ /* delay(950);
   digitalWrite(PIN_LED, HIGH);
   delay(50);
   digitalWrite(PIN_LED, LOW);
@@ -137,7 +120,22 @@ void DCF77()
     delay(50);
     digitalWrite(PIN_LED, HIGH);
   }
-  digitalClockDisplay();
+  digitalClockDisplay();*/
+
+}
+
+int LDR_Messung()
+{
+  helligkeit = analogRead(0);
+  Serial.println(helligkeit);
+  delay(500);
+  
+  return helligkeit;
+}
+
+void DCF77()
+{
+   
 }
 
 void digitalClockDisplay()
