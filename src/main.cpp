@@ -2,6 +2,7 @@
 //#include "avr8-stub.h"
 //#include "app_api.h" //only needed with flash breakpoints
 #include <Adafruit_NeoPixel.h>
+#include <Adafruit_NeoMatrix.h>
 #include <avr/power.h>
 
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
@@ -14,7 +15,12 @@
 
 // Variablen:
 #define LED_PIN_IndLi    6    // LED Pin für die indirekte Beleuchtung auf der linken Seite an Pin 6
-#define LED_COUNT_IndLi 15    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
+#define LED_COUNT_IndLi 14    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
+#define LED_PIN_IndRe    5    // LED Pin für die indirekte Beleuchtung auf der linken Seite an Pin 6
+#define LED_COUNT_IndRe 14    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
+#define main_light_width 5
+#define main_light_high 5
+#define main_light_pin 3
 
 #define DCF_PIN 2           // Connection pin to DCF 77 device
 #define DCF_INTERRUPT 0    // Interrupt number associated with pin
@@ -35,6 +41,7 @@ int LDR_Messung(); //LDR Messung zwischen 0 und 1023
 
 // Objekte:
 Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
+Adafruit_NeoPixel strip_IndRe(LED_COUNT_IndRe, LED_PIN_IndRe, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
 // Argument 1 = Number of pixels in NeoPixel pixel
 // Argument 2 = Arduino pin number (most are valid)
 // Argument 3 = Pixel type flags, add together as needed:
@@ -43,6 +50,7 @@ Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ8
 // NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 // NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 // NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
+Adafruit_NeoMatrix main_light(main_light_width, main_light_high,main_light_pin, NEO_MATRIX_TOP+NEO_MATRIX_LEFT+NEO_MATRIX_ROWS ,NEO_GRB+NEO_KHZ800);
 
 //Gestensensorobjekt
 RevEng_PAJ7620 sensor = RevEng_PAJ7620();
@@ -66,6 +74,10 @@ void setup()
   //Neopixel
   strip_IndLi.begin(); 
   strip_IndLi.show(); //Initialize all pixels from indirect light strip left to OFF
+  strip_IndRe.begin(); 
+  strip_IndRe.show(); //Initialize all pixels from indirect light strip left to OFF
+  main_light.begin();
+  main_light.show();
 
   //Signalgeber (Summer)
   pinMode(4, OUTPUT);
@@ -96,7 +108,7 @@ void setup()
 // Main-Code-Schleife, diese Methode wird ständig wiederholt
 void loop() 
 {
-  RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
+  RGB_Licht_Funktion(0, 0, 0, 0, 255, 1);
   //Signalgeber(0,0);
   //Gestensensor();
   //RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
@@ -252,7 +264,11 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
       gruen=255;
       blau=255;
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
+      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
+      main_light.fill(main_light.Color(rot, gruen, blau));
       strip_IndLi.show();
+      strip_IndRe.show();
+      main_light.show();
   }
   else if (modi==2)  //Modi 2 = Entspannungslicht (ca.4000K) an + indirekte Beleuchtung in gleicher Farbe
   {
@@ -269,7 +285,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
   }
   else if (modi==4)  //Modi 4 = Partylicht, alle RGB wechseln die Farben schnell
   {
-    for(int x1=0 ; x1<=14 ; x1++)
+    for(int x1=0 ; x1<=13 ; x1++)
     {
       rot=255;
       gruen=0;
@@ -278,7 +294,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
       strip_IndLi.show(); 
       delay(50);
     }
-    for(int x2=0 ; x2<=14 ; x2++)
+    for(int x2=0 ; x2<=13 ; x2++)
     {
       rot=0;
       gruen=255;
@@ -287,7 +303,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
       strip_IndLi.show(); 
       delay(50);
     }
-    for(int x3=0 ; x3<=14 ; x3++)
+    for(int x3=0 ; x3<=13 ; x3++)
     {
       rot=0;
       gruen=0;
