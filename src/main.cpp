@@ -13,6 +13,7 @@
 
 
 
+
 // Variablen:
 #define LED_PIN_IndLi    6    // LED Pin für die indirekte Beleuchtung auf der linken Seite an Pin 6
 #define LED_COUNT_IndLi 14    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
@@ -27,7 +28,9 @@
 #define PIN_LED 13
 #define PIN_schalter 7
 
-int helligkeit;
+int helligkeit; //Wird benötigt für die LDR-Messung
+char hmi_input [7]={}; //Es werden 7 char benötigt, da wir 7 Datensätze pro Button übertragen, um diesen zu identifizieren
+
 
 
 // Funktionen:
@@ -77,7 +80,7 @@ void setup()
   strip_IndRe.begin(); 
   strip_IndRe.show(); //Initialize all pixels from indirect light strip left to OFF
   main_light.begin();
-  main_light.show();
+  main_light.show(); //Initialize all pixels from indirect light strip left to OFF
 
   //Signalgeber (Summer)
   pinMode(4, OUTPUT);
@@ -94,24 +97,67 @@ void setup()
   Serial.println("Please input your gestures:"); */
 
   //DCF77  
-  pinMode(PIN_LED, OUTPUT);
+ /* pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_schalter, OUTPUT);
   digitalWrite(PIN_schalter, LOW);
   Serial.begin(9600); 
   DCF.Start();
   Serial.println("Warten auf DCF77-Zeit... ");
   Serial.println("Dies dauert mindestens 2 Minuten, in der Regel eher länger.");
-  delay(2000); 
+  delay(2000); */
+
+  //HMI
+  String cmd; 
+  cmd+= "\"";
+  for(int i=0 ; i<=2 ; i++) //Mithilfe dieser Schleife wird die Textbox 1 zurückgesetzt, muss immer 2 mal gemacht werden damit es zuverlässig funktioniert
+  {
+    Serial.print("texbox_1.txt="+cmd+""+cmd);
+    Serial.write(0xFF);
+    Serial.write(0xFF);
+    Serial.write(0xFF);
+  }
 }
 
 
 // Main-Code-Schleife, diese Methode wird ständig wiederholt
 void loop() 
 {
-  RGB_Licht_Funktion(0, 0, 0, 0, 255, 1);
+  //RGB_Licht_Funktion(0, 0, 0, 0, 255, 6);
   //Signalgeber(0,0);
   //Gestensensor();
   //RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
+  Serial.println(Serial.available());
+  //HMI
+  if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
+  {
+    for(int i=0;i<6;i++) //Eingehende Nummer von Inputs einlesen (xx yy zz dd aa uu ii) yy=Seite, zz=Button 1,2,3
+    {
+      hmi_input[i]=hmi_input[i+1];
+      Serial.println(hmi_input[i]);
+    }
+    hmi_input[6]=Serial.read();
+    
+  }
+
+  if(/*hmi_input[1]==1 && */ hmi_input[2]==1)
+  { 
+    RGB_Licht_Funktion(0, 0, 0, 0, 255, 2);
+    String cmd; 
+    cmd+= "\"";
+    for(int i=0 ; i<=2 ; i++)
+    {
+    Serial.print("texbox_1.txt="+cmd+"Licht Ein"+cmd);
+    Serial.write(0xFF);
+    Serial.write(0xFF);
+    Serial.write(0xFF);
+    }
+    
+    for(int i=0; i<7;i++) //Inputdatenarray löschen
+    {
+      hmi_input[i]=0;
+    }
+  }
+
   
 // das Signal wird nur aller 5 Sekunden abgefragt
  /* delay(950);
@@ -265,7 +311,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
       blau=255;
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
       strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      main_light.fill(main_light.Color(rot, gruen, blau));
+      main_light.fillScreen(main_light.Color(rot, gruen, blau));
       strip_IndLi.show();
       strip_IndRe.show();
       main_light.show();
@@ -276,7 +322,11 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
       gruen=142;
       blau=28;
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
+      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
+      main_light.fillScreen(main_light.Color(rot, gruen, blau));
       strip_IndLi.show();
+      strip_IndRe.show();
+      main_light.show();
   }
   else if (modi==3)  //Modi 3 = Farbenwechsel, Hauptleuchte und indirekte Beleuchtung wechselt die Farbe langsam
   {
@@ -292,6 +342,8 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
       blau=0;
       strip_IndLi.setPixelColor(x1, rot, gruen, blau);
       strip_IndLi.show(); 
+      strip_IndRe.setPixelColor(x1, rot, gruen, blau);
+      strip_IndRe.show(); 
       delay(50);
     }
     for(int x2=0 ; x2<=13 ; x2++)
@@ -301,6 +353,8 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
       blau=0;
       strip_IndLi.setPixelColor(x2, rot, gruen, blau);
       strip_IndLi.show(); 
+      strip_IndRe.setPixelColor(x2, rot, gruen, blau);
+      strip_IndRe.show(); 
       delay(50);
     }
     for(int x3=0 ; x3<=13 ; x3++)
@@ -309,7 +363,9 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
       gruen=0;
       blau=255;
       strip_IndLi.setPixelColor(x3, rot, gruen, blau);
-      strip_IndLi.show(); 
+      strip_IndLi.show();
+      strip_IndRe.setPixelColor(x3, rot, gruen, blau);
+      strip_IndRe.show();  
       delay(50);
     }  
   }
@@ -324,29 +380,43 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
       gruen=142;
       blau=28;
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
+      strip_IndRe.fill(strip_IndLi.Color(rot, gruen, blau));
+      main_light.fillScreen(main_light.Color(rot, gruen, blau));
 
       if(LDR_Messung()<=300)
       {
         strip_IndLi.setBrightness(255);
+        strip_IndRe.setBrightness(255);
+        main_light.setBrightness(255);
       }
       else if (LDR_Messung()<=500)
       {
         strip_IndLi.setBrightness(200);
+        strip_IndRe.setBrightness(200);
+        main_light.setBrightness(200);
       }
       else if (LDR_Messung()<=700)
       {
         strip_IndLi.setBrightness(150);
+        strip_IndRe.setBrightness(150);
+        main_light.setBrightness(150);
       }
       else if (LDR_Messung()<=850)
       {
         strip_IndLi.setBrightness(50);
+        strip_IndRe.setBrightness(50);
+        main_light.setBrightness(50);
       }
       else if (LDR_Messung()<=1000)
       {
         strip_IndLi.setBrightness(0);
+        strip_IndRe.setBrightness(0);
+        main_light.setBrightness(0);
       }
 
       strip_IndLi.show();
+      strip_IndRe.show();
+      main_light.show();
   } 
   return 1;
 }
