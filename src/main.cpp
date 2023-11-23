@@ -30,6 +30,7 @@
 
 int helligkeit; //Wird benötigt für die LDR-Messung
 char hmi_input [7]={}; //Es werden 7 char benötigt, da wir 7 Datensätze pro Button übertragen, um diesen zu identifizieren
+bool flanke_ein = false;
 
 
 
@@ -111,7 +112,7 @@ void setup()
   cmd+= "\"";
   for(int i=0 ; i<=2 ; i++) //Mithilfe dieser Schleife wird die Textbox 1 zurückgesetzt, muss immer 2 mal gemacht werden damit es zuverlässig funktioniert
   {
-    Serial.print("texbox_1.txt="+cmd+""+cmd);
+    Serial.print("texbox_1.txt=\"Setup Erfolgreich\"");
     Serial.write(0xFF);
     Serial.write(0xFF);
     Serial.write(0xFF);
@@ -136,22 +137,37 @@ void loop()
       Serial.println(hmi_input[i]);
     }
     hmi_input[6]=Serial.read();
-    
   }
 
-  if(/*hmi_input[1]==1 && */ hmi_input[2]==1)
+  if(hmi_input[1]==0 && hmi_input[2]==5) //hmi_input[1]=Seite, hmi_input[2]=Button => Ein/Aus
   { 
-    RGB_Licht_Funktion(0, 0, 0, 0, 255, 2);
-    String cmd; 
-    cmd+= "\"";
-    for(int i=0 ; i<=2 ; i++)
+    int flankenerkennung;
+    if(flanke_ein==true)
     {
-    Serial.print("texbox_1.txt="+cmd+"Licht Ein"+cmd);
-    Serial.write(0xFF);
-    Serial.write(0xFF);
-    Serial.write(0xFF);
+      RGB_Licht_Funktion(0, 0, 0, 0, 0, 1);
+      flanke_ein=false;
+      flankenerkennung = 1;
+      for(int i=0;i<=2;i++){
+      Serial.print("texbox_1.txt=\"Licht Aus\"");
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      }
     }
-    
+    else if (flanke_ein==false && flankenerkennung==0)
+    {
+      RGB_Licht_Funktion(0, 255, 255, 255, 255, 1);
+      flanke_ein=true;
+      for(int i=0;i<=2;i++){
+      Serial.print("texbox_1.txt=\"Licht Ein\"");
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      }
+      
+    }
+    flankenerkennung = 0;
+        
     for(int i=0; i<7;i++) //Inputdatenarray löschen
     {
       hmi_input[i]=0;
@@ -306,9 +322,6 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
 {
   if(modi==1)  //Modi 1 = Arbeitslicht (ca.6000K) an + indirekte Beleuchtung in gleicher Farbe
   {
-      rot=255;
-      gruen=255;
-      blau=255;
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
       strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
       main_light.fillScreen(main_light.Color(rot, gruen, blau));
