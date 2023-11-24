@@ -30,17 +30,27 @@
 
 int helligkeit; //Wird benötigt für die LDR-Messung
 char hmi_input [7]={}; //Es werden 7 char benötigt, da wir 7 Datensätze pro Button übertragen, um diesen zu identifizieren
-bool flanke_ein = false;
-
+bool flanke_Licht_ein = false;
+int modus=0;
+int rot=0;
+int gruen=0;
+int blau=0;
+int leuchtstaerke=0;
+bool hauptleuchte_an=false;
+bool indirektebeleuchtung_an=false;
+int durchlaufzaehler_party_farbwechsel=0;
+volatile int flankenzaehler_ein_aus=0;
 
 
 // Funktionen:
-int RGB_Licht_Funktion(int, int, int, int, int, int); //(Pixel,R,G,B,Helligkeit,Modus)
+int RGB_Licht_Funktion(int, int, int, int, int, int, bool, bool); //(Pixel,R,G,B,Helligkeit,Modus,Hauptleuchte_an,Indirektebeleuchtung_an)
 int Signalgeber(int, int); //(An, Modus)
 int Gestensensor(); //Gestensensor
 void digitalClockDisplay();  // DCF77
 void printDigits(int);  // DCF77
 int LDR_Messung(); //LDR Messung zwischen 0 und 1023
+void Serielle_Textausgabe(String, String); //Textausgabe zum HMI
+void HMI_Input_loeschen(char*);
 
 
 // Objekte:
@@ -106,17 +116,6 @@ void setup()
   Serial.println("Warten auf DCF77-Zeit... ");
   Serial.println("Dies dauert mindestens 2 Minuten, in der Regel eher länger.");
   delay(2000); */
-
-  //HMI
-  String cmd; 
-  cmd+= "\"";
-  for(int i=0 ; i<=2 ; i++) //Mithilfe dieser Schleife wird die Textbox 1 zurückgesetzt, muss immer 2 mal gemacht werden damit es zuverlässig funktioniert
-  {
-    Serial.print("texbox_1.txt=\"Setup Erfolgreich\"");
-    Serial.write(0xFF);
-    Serial.write(0xFF);
-    Serial.write(0xFF);
-  }
 }
 
 
@@ -139,41 +138,153 @@ void loop()
     hmi_input[6]=Serial.read();
   }
 
-  if(hmi_input[1]==0 && hmi_input[2]==5) //hmi_input[1]=Seite, hmi_input[2]=Button => Ein/Aus
-  { 
-    int flankenerkennung;
-    if(flanke_ein==true)
+  
+  if(hmi_input[1]==1 && (hmi_input[2]==3 || hmi_input[2]==4 || hmi_input[2]==5 || hmi_input[2]==6 || hmi_input[2]==7)) //hmi_input[1]=> Seite 2, hmi_input[2] => Buttons Modies
+  {
+    switch (hmi_input[2])
     {
-      RGB_Licht_Funktion(0, 0, 0, 0, 0, 1);
-      flanke_ein=false;
-      flankenerkennung = 1;
-      for(int i=0;i<=2;i++){
-      Serial.print("texbox_1.txt=\"Licht Aus\"");
-      Serial.write(0xFF);
-      Serial.write(0xFF);
-      Serial.write(0xFF);
-      }
-    }
-    else if (flanke_ein==false && flankenerkennung==0)
-    {
-      RGB_Licht_Funktion(0, 255, 255, 255, 255, 1);
-      flanke_ein=true;
-      for(int i=0;i<=2;i++){
-      Serial.print("texbox_1.txt=\"Licht Ein\"");
-      Serial.write(0xFF);
-      Serial.write(0xFF);
-      Serial.write(0xFF);
-      }
-      
-    }
-    flankenerkennung = 0;
-        
-    for(int i=0; i<7;i++) //Inputdatenarray löschen
-    {
-      hmi_input[i]=0;
+    case 3:
+      modus=1; //Arbeitslicht (Lernen)
+      rot=255;
+      gruen=255;
+      blau=255;
+      leuchtstaerke=255;
+      Serielle_Textausgabe("texbox_1_lk.txt=","Lernen"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      break;
+    case 4:
+      modus=2; //Entspannungslicht (Relax)
+      rot=241;
+      gruen=142;
+      blau=28;
+      leuchtstaerke=255;
+      Serielle_Textausgabe("texbox_1_lk.txt=","Relax"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      break;
+    case 5:
+      modus=4; //Party
+      leuchtstaerke=255;
+      Serielle_Textausgabe("texbox_1_lk.txt=","Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      break;
+    case 6:
+      modus=3; //Farben mix
+      Serielle_Textausgabe("texbox_1_lk.txt=","Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      break;
+    case 7:
+      modus=6; //Lichtabhängige Lichtansteuerung (Automatik)
+      Serielle_Textausgabe("texbox_1_lk.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      break;
+    
+    default:
+      break;
     }
   }
 
+
+
+  if(hmi_input[1]==1 && hmi_input[2]==0x0F && indirektebeleuchtung_an==false) //Auswertung welche Leuchten angesteuert werden sollen
+  {
+    indirektebeleuchtung_an=true;
+    HMI_Input_loeschen(hmi_input);
+  }
+  else if(hmi_input[1]==1 && hmi_input[2]==0x0F && indirektebeleuchtung_an==true)
+  {
+    indirektebeleuchtung_an=false;
+    HMI_Input_loeschen(hmi_input);
+  }
+  if(hmi_input[1]==1 && hmi_input[2]==0x0E && hauptleuchte_an==false)
+  {
+    hauptleuchte_an=true;
+    HMI_Input_loeschen(hmi_input);
+  }
+  else if(hmi_input[1]==1 && hmi_input[2]==0x0E && hauptleuchte_an==true)
+  {
+    hauptleuchte_an=false;
+    HMI_Input_loeschen(hmi_input);
+  }
+
+  if(hmi_input[1]==0 && hmi_input[2]==5 && modus!=0)  //Ein/Aus der ausgewählten Leuchten
+  {
+    flankenzaehler_ein_aus++;
+
+    if(flankenzaehler_ein_aus==1)
+    {
+      flanke_Licht_ein=true;
+      Serielle_Textausgabe("texbox_1.txt=","Licht Ein"); //Ausgabetext in Textbox 1 auf Seite 1
+      if(modus!=4 || modus !=6){
+        RGB_Licht_Funktion(0, rot, gruen, blau, leuchtstaerke, modus, hauptleuchte_an, indirektebeleuchtung_an);
+      } 
+      
+    } 
+    else if(flankenzaehler_ein_aus==2)
+    {
+      flanke_Licht_ein=false;
+      flankenzaehler_ein_aus=0;
+      Serielle_Textausgabe("texbox_1.txt=","Licht Aus"); //Ausgabetext in Textbox 1 auf Seite 1 
+      RGB_Licht_Funktion(0, 0, 0, 0, 0, modus, hauptleuchte_an, indirektebeleuchtung_an);
+    }
+     HMI_Input_loeschen(hmi_input);
+  }
+   
+
+  if(modus==4 && flanke_Licht_ein==true) //Farbwechsel für Partymodus
+  {
+    if(durchlaufzaehler_party_farbwechsel<=100)
+    {
+      rot=255;
+      gruen=0;
+      blau=0;
+    }
+    else if(durchlaufzaehler_party_farbwechsel<=200)
+    {
+      rot=0;
+      gruen=255;
+      blau=0;
+    }
+    else if(durchlaufzaehler_party_farbwechsel<=300)
+    {
+      rot=0;
+      gruen=0;
+      blau=255;
+    }
+    else if(durchlaufzaehler_party_farbwechsel==301)
+    {
+      durchlaufzaehler_party_farbwechsel=0;
+    }
+    durchlaufzaehler_party_farbwechsel++;
+    RGB_Licht_Funktion(0, rot, gruen, blau, 255, modus, hauptleuchte_an, indirektebeleuchtung_an);
+  }
+
+
+  if(modus==6 && flanke_Licht_ein==true) //Automatikmodus
+  {
+    int aktueller_LDR_wert=LDR_Messung();
+    int setze_helligkeit;
+
+      if(aktueller_LDR_wert<=300)
+      {
+        setze_helligkeit=255;
+      }
+      else if (aktueller_LDR_wert<=500)
+      {
+        setze_helligkeit=200;
+      }
+      else if (aktueller_LDR_wert<=700)
+      {
+        setze_helligkeit=150;
+      }
+      else if (aktueller_LDR_wert<=850)
+      {
+        setze_helligkeit=50;
+      }
+      else if (aktueller_LDR_wert<=1000)
+      {
+        setze_helligkeit=0;
+      }
+    rot=241;
+    gruen=142;
+    blau=28;
+    RGB_Licht_Funktion(0, rot, gruen, blau, setze_helligkeit, modus, hauptleuchte_an, indirektebeleuchtung_an);
+  }
+ 
   
 // das Signal wird nur aller 5 Sekunden abgefragt
  /* delay(950);
@@ -195,15 +306,34 @@ void loop()
     digitalWrite(PIN_LED, HIGH);
   }
   digitalClockDisplay();*/
+}
 
+
+
+
+void HMI_Input_loeschen(char* HMI_Input_array)
+{
+  for(int i=0; i<7;i++) //Inputdatenarray löschen
+      {
+        HMI_Input_array[i]=0;
+      }
+}
+
+void Serielle_Textausgabe(String textbox, String text)
+{
+  String cmd;
+  cmd +="\"";
+  for(int i=0;i<=2;i++){
+      Serial.print(textbox + cmd + text + cmd);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+  }
 }
 
 int LDR_Messung()
 {
-  helligkeit = analogRead(0);
-  Serial.println(helligkeit);
-  delay(500);
-  
+  helligkeit = analogRead(0);  
   return helligkeit;
 }
 
@@ -318,69 +448,95 @@ int Signalgeber(int an, int modi)
   return 1;
 }
 
-int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int helligkeit, int modi)
+int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int helligkeit, int modi, bool hauptleuchte, bool indirekt)
 {
   if(modi==1)  //Modi 1 = Arbeitslicht (ca.6000K) an + indirekte Beleuchtung in gleicher Farbe
   {
+    strip_IndLi.setBrightness(helligkeit);
+    strip_IndRe.setBrightness(helligkeit);
+    main_light.setBrightness(helligkeit);
+   
+    if(indirekt==true && hauptleuchte==true)
+    {
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
       strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
       main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.show();
       strip_IndLi.show();
       strip_IndRe.show();
+    }
+    if(indirekt==true)
+    {
+      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
+      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
+      strip_IndLi.show();
+      strip_IndRe.show();
+    }
+    else if(hauptleuchte==true)
+    {
+      main_light.fillScreen(main_light.Color(rot, gruen, blau));
       main_light.show();
+    }
   }
   else if (modi==2)  //Modi 2 = Entspannungslicht (ca.4000K) an + indirekte Beleuchtung in gleicher Farbe
   {
-      rot=241;
-      gruen=142;
-      blau=28;
+    strip_IndLi.setBrightness(helligkeit);
+    strip_IndRe.setBrightness(helligkeit);
+    main_light.setBrightness(helligkeit);
+
+    if(indirekt==true && hauptleuchte==true)
+    {
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
       strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
       main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.show();
       strip_IndLi.show();
       strip_IndRe.show();
+    }
+    if(indirekt==true)
+    {
+      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
+      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
+      strip_IndLi.show();
+      strip_IndRe.show();
+    }
+    else if(hauptleuchte==true)
+    {
+      main_light.fillScreen(main_light.Color(rot, gruen, blau));
       main_light.show();
+    }
   }
-  else if (modi==3)  //Modi 3 = Farbenwechsel, Hauptleuchte und indirekte Beleuchtung wechselt die Farbe langsam
+  else if (modi==3)  //Modi 3 = Farbe selber mixen
   {
     
 
   }
   else if (modi==4)  //Modi 4 = Partylicht, alle RGB wechseln die Farben schnell
   {
-    for(int x1=0 ; x1<=13 ; x1++)
+    strip_IndLi.setBrightness(helligkeit);
+    strip_IndRe.setBrightness(helligkeit);
+    main_light.setBrightness(helligkeit);
+    if(indirekt==true && hauptleuchte==true)
     {
-      rot=255;
-      gruen=0;
-      blau=0;
-      strip_IndLi.setPixelColor(x1, rot, gruen, blau);
-      strip_IndLi.show(); 
-      strip_IndRe.setPixelColor(x1, rot, gruen, blau);
-      strip_IndRe.show(); 
-      delay(50);
-    }
-    for(int x2=0 ; x2<=13 ; x2++)
-    {
-      rot=0;
-      gruen=255;
-      blau=0;
-      strip_IndLi.setPixelColor(x2, rot, gruen, blau);
-      strip_IndLi.show(); 
-      strip_IndRe.setPixelColor(x2, rot, gruen, blau);
-      strip_IndRe.show(); 
-      delay(50);
-    }
-    for(int x3=0 ; x3<=13 ; x3++)
-    {
-      rot=0;
-      gruen=0;
-      blau=255;
-      strip_IndLi.setPixelColor(x3, rot, gruen, blau);
+      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
+      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
+      main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.show();
       strip_IndLi.show();
-      strip_IndRe.setPixelColor(x3, rot, gruen, blau);
-      strip_IndRe.show();  
-      delay(50);
-    }  
+      strip_IndRe.show();
+    }
+    if(indirekt==true)
+    {
+      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
+      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
+      strip_IndLi.show();
+      strip_IndRe.show();
+    }
+    else if(hauptleuchte==true)
+    {
+      main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.show();
+    }
   }
   else if (modi==5)  //Modi 3 = Neopixel einzeln ansteuern
   {
@@ -389,47 +545,31 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
   }
   else if (modi==6) //Modi 6 = Helligkeitsabhänging die LED-Lichtstärke steuern
   {
-      rot=241;
-      gruen=142;
-      blau=28;
+    strip_IndLi.setBrightness(helligkeit);
+    strip_IndRe.setBrightness(helligkeit);
+    main_light.setBrightness(helligkeit);
+
+    if(indirekt==true && hauptleuchte==true)
+    {
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
-      strip_IndRe.fill(strip_IndLi.Color(rot, gruen, blau));
+      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
       main_light.fillScreen(main_light.Color(rot, gruen, blau));
-
-      if(LDR_Messung()<=300)
-      {
-        strip_IndLi.setBrightness(255);
-        strip_IndRe.setBrightness(255);
-        main_light.setBrightness(255);
-      }
-      else if (LDR_Messung()<=500)
-      {
-        strip_IndLi.setBrightness(200);
-        strip_IndRe.setBrightness(200);
-        main_light.setBrightness(200);
-      }
-      else if (LDR_Messung()<=700)
-      {
-        strip_IndLi.setBrightness(150);
-        strip_IndRe.setBrightness(150);
-        main_light.setBrightness(150);
-      }
-      else if (LDR_Messung()<=850)
-      {
-        strip_IndLi.setBrightness(50);
-        strip_IndRe.setBrightness(50);
-        main_light.setBrightness(50);
-      }
-      else if (LDR_Messung()<=1000)
-      {
-        strip_IndLi.setBrightness(0);
-        strip_IndRe.setBrightness(0);
-        main_light.setBrightness(0);
-      }
-
+      main_light.show();
       strip_IndLi.show();
       strip_IndRe.show();
+    }
+    if(indirekt==true)
+    {
+      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
+      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
+      strip_IndLi.show();
+      strip_IndRe.show();
+    }
+    else if(hauptleuchte==true)
+    {
+      main_light.fillScreen(main_light.Color(rot, gruen, blau));
       main_light.show();
+    }
   } 
   return 1;
 }
