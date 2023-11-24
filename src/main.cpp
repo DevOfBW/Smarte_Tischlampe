@@ -122,10 +122,9 @@ void setup()
 // Main-Code-Schleife, diese Methode wird ständig wiederholt
 void loop() 
 {
-  //RGB_Licht_Funktion(0, 0, 0, 0, 255, 6);
   //Signalgeber(0,0);
   //Gestensensor();
-  //RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
+
   Serial.println(Serial.available());
   //HMI
   if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
@@ -204,15 +203,13 @@ void loop()
   if(hmi_input[1]==0 && hmi_input[2]==5 && modus!=0)  //Ein/Aus der ausgewählten Leuchten
   {
     flankenzaehler_ein_aus++;
-
     if(flankenzaehler_ein_aus==1)
     {
       flanke_Licht_ein=true;
       Serielle_Textausgabe("texbox_1.txt=","Licht Ein"); //Ausgabetext in Textbox 1 auf Seite 1
       if(modus!=4 || modus !=6){
         RGB_Licht_Funktion(0, rot, gruen, blau, leuchtstaerke, modus, hauptleuchte_an, indirektebeleuchtung_an);
-      } 
-      
+      }  
     } 
     else if(flankenzaehler_ein_aus==2)
     {
