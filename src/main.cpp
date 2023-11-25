@@ -7,14 +7,16 @@
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
 #include "RevEng_PAJ7620.h"
 
-#include "TimeLib.h"
-#include "DCF77.h"
+#include <Nextion.h>
+
+//#include "TimeLib.h"
+//#include "DCF77.h"
 
 
 
 // Variablen:
 #define LED_PIN_IndLi    6    // LED Pin für die indirekte Beleuchtung auf der linken Seite an Pin 6
-#define LED_COUNT_IndLi 15    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
+#define LED_COUNT_IndLi 29    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
 
 #define DCF_PIN 2           // Connection pin to DCF 77 device
 #define DCF_INTERRUPT 0    // Interrupt number associated with pin
@@ -22,6 +24,8 @@
 #define PIN_schalter 7
 
 int helligkeit;
+
+int red,green,blue,bright;
 
 
 // Funktionen:
@@ -47,12 +51,93 @@ Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ8
 //Gestensensorobjekt
 RevEng_PAJ7620 sensor = RevEng_PAJ7620();
 
+
+//Displayelemente
+NexSlider h0 = NexSlider(0, 2, "h0"); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
+NexSlider h1 = NexSlider(0, 7, "h1"); //Slider gruen
+NexSlider h2 = NexSlider(0, 9, "h2"); //Slider blau
+NexSlider h3 = NexSlider(0, 11, "h3");  //Slider helligkeit
+NexDSButton bt1 = NexDSButton(0, 4, "bt1"); //Button Licht an/aus
+NexCheckbox c0 = NexCheckbox(0, 3, "c0");
+
+NexTouch *nex_listen_list[]={
+  &h0,
+  &h1,
+  &h2,
+  &h3,
+  &bt1,
+  &c0
+}
 //DCF77
 //time_t time;
-DCF77 DCF = DCF77(DCF_PIN, DCF_INTERRUPT);
+//DCF77 DCF = DCF77(DCF_PIN, DCF_INTERRUPT);
 // wurde ein gültiges Signal gefunden
 bool g_bDCFTimeFound = false;
 
+#pragma region DisplayFunctions
+bool sendCmdToDisplay(String command){
+  Serial.print(command);
+  Serial.write(0xFF);
+  Serial.write(0xFF);
+  Serial.write(0xFF);
+}
+
+/*
+void h0PushCallback(void *ptr)      fuer Touch Press Event*/
+
+void h0PopCallback(void *ptr){
+  uint32_t state=0;
+  h0.getValue(&state);
+  red=state;
+}
+
+void h1PopCallback(void *ptr){
+  uint32_t state=0;
+  h1.getValue(&state);
+  green=state;
+}
+
+void h2PopCallback(void *ptr){
+  uint32_t state=0;
+  h2.getValue(&state);
+  blue=state;
+}
+
+void h3PopCallback(void *ptr){
+  uint32_t state=0;
+  h3.getValue(&state);
+  bright=state;
+}
+
+void bt1PopCallback(void *ptr){
+  uint32_t state=0;
+  bt1.getValue(&state);
+
+  if(state == 1){
+    strip_IndLi.fill(strip_IndLi.Color(red, green, blue));
+    strip_IndLi.setBrightness(bright);
+    strip_IndLi.show();
+  }else{
+    strip_IndLi.setBrightness(0);
+    strip_IndLi.show();
+  }
+
+}
+
+void c0PopCallback(void *ptr){
+  uint32_t state=0;
+  c0.getValue(&state);
+
+  if(state == 1){
+    RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
+  }else{
+    strip_IndLi.fill(strip_IndLi.Color(red, green, blue));
+    strip_IndLi.setBrightness(bright);
+    strip_IndLi.show();
+  }
+
+}
+#pragma endregion
 
 
 // Setupmethode, diese Methode beeinhaltet alle Grundeinstellungen z.B. ob ein Kanal ein Eingang oder Ausgang ist. 
@@ -90,20 +175,132 @@ void setup()
   Serial.println("Warten auf DCF77-Zeit... ");
   Serial.println("Dies dauert mindestens 2 Minuten, in der Regel eher länger.");
   delay(2000); */
+
+  //Display Events zu Artefakten hinzufuegen
+  h0.attachPop(h0PopCallback);
+  h1.attachPop(h1PopCallback);
+  h2.attachPop(h2PopCallback);
+  h3.attachPop(h3PopCallback);
+  bt1.attachPop(bt1PopCallback);
+  c0.attachPop(c0PopCallback);
+
+  //HMI
+  String cmd; 
+  cmd+= "\"";
+  for(int i=0 ; i<=2 ; i++) //Mithilfe dieser Schleife wird die Textbox 1 zurückgesetzt, muss immer 2 mal gemacht werden damit es zuverlässig funktioniert
+  {
+    Serial.print("vis b0,0"); //Hiding Button to next page TODO: Make page 1 available
+    Serial.write(0xFF);
+    Serial.write(0xFF);
+    Serial.write(0xFF);
+  }
 }
 
 
 // Main-Code-Schleife, diese Methode wird ständig wiederholt
 void loop() 
 {
+  nexLoop(nex_listen_list);
+
   //RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
   //Signalgeber(0,0);
   //Gestensensor();
   //DCF77();
 
+  //RGB_Licht_Funktion(0, 0, 0, 0, 255, 6);
+  //Signalgeber(0,0);
+  //Gestensensor();
+  //RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
+  Serial.println(Serial.available());
+  //HMI
+  if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
+  {
+    for(int i=0;i<6;i++) //Eingehende Nummer von Inputs einlesen (xx yy zz dd aa uu ii) yy=Seite, zz=Component ID 1,2,3
+    {
+      hmi_input[i]=hmi_input[i+1];
+      Serial.println(hmi_input[i]);
+    }
+    hmi_input[6]=Serial.read();
+  }
 
-  RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
+  if(hmi_input[1]==0&&hmi_input[0]==65){//Touch Event
+    switch(hmi_input[2]){
+      case 2: //Rot-Wert
+        red=hmi_input[5];
+        sendCmdToDisplay("n0.val="+red);
+        //Weitergabe an die LED-Streifen
+        break;
+      case 7: //Gruen-Wert
+        green=hmi_input[5];
+        sendCmdToDisplay("n1.val="+green);
+        break;
+      case 9: //Blau-Wert
+        blue=hmi_input[5];
+        sendCmdToDisplay("n2.val="+blue);
+        break;
+      case 11: //Helligkeit
+        bright=hmi_input[5];
+        sendCmdToDisplay("n3.val="+bright);
+        break;
+    }
 
+    for(int i=0; i<7;i++) //Inputdatenarray löschen
+    {
+      hmi_input[i]=0;
+    }
+  }
+
+  /*
+  if(hmi_input[1]==0 && hmi_input[2]==5) //hmi_input[1]=Seite, hmi_input[2]=Button => Ein/Aus
+  { 
+    int flankenerkennung;
+    if(flanke_ein==true)
+    {
+      RGB_Licht_Funktion(0, 0, 0, 0, 0, 1);
+      flanke_ein=false;
+      flankenerkennung = 1;
+      for(int i=0;i<=2;i++){
+      Serial.print("texbox_1.txt=\"Licht Aus\"");
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      }
+    }
+    else if (flanke_ein==false && flankenerkennung==0)
+    {
+      RGB_Licht_Funktion(0, 255, 255, 255, 255, 1);
+      flanke_ein=true;
+      for(int i=0;i<=2;i++){
+      Serial.print("texbox_1.txt=\"Licht Ein\"");
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      }
+      
+    }
+    flankenerkennung = 0;
+        
+    for(int i=0; i<7;i++) //Inputdatenarray löschen
+    {
+      hmi_input[i]=0;
+    }
+  }
+  */
+
+  //RGB_Licht_Funktion(0, 0, 0, 0, 0, 1);
+
+
+/*
+  Serial.print("va0.val=42");   //Sending Code to the Display; this case: value of va0 is 42
+  Serial.write(0xff);           //After every command three times this line
+  Serial.write(0xff);
+  Serial.write(0xff);
+
+  Serial.print("vis t3,0");   //Hiding object t3
+  Serial.write(0xff);
+  Serial.write(0xff);
+  Serial.write(0xff);
+*/
 
 }
 
@@ -116,6 +313,7 @@ int LDR_Messung()
   return helligkeit;
 }
 
+/*
 void DCF77()
 {
    // das Signal wird nur aller 5 Sekunden abgefragt
@@ -140,6 +338,7 @@ void DCF77()
   digitalClockDisplay();
 }
 
+
 void digitalClockDisplay()
 {
   // digital clock display of the time
@@ -156,7 +355,7 @@ void digitalClockDisplay()
   Serial.print(year()); 
   Serial.println();
 }
-
+*/
 void printDigits(int digits)
 {
   // utility function for digital clock display: prints preceding colon and leading 0
@@ -250,10 +449,11 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
 {
   if(modi==1)  //Modi 1 = Arbeitslicht (ca.6000K) an + indirekte Beleuchtung in gleicher Farbe
   {
-      rot=255;
-      gruen=255;
-      blau=255;
+      rot=0;
+      gruen=100;
+      blau=100;
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
+      strip_IndLi.setBrightness(25);
       strip_IndLi.show();
   }
   else if (modi==2)  //Modi 2 = Entspannungslicht (ca.4000K) an + indirekte Beleuchtung in gleicher Farbe
@@ -336,3 +536,4 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
   } 
   return 1;
 }
+
