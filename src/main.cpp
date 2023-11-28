@@ -58,7 +58,7 @@ NexSlider h1 = NexSlider(0, 7, "h1"); //Slider gruen
 NexSlider h2 = NexSlider(0, 9, "h2"); //Slider blau
 NexSlider h3 = NexSlider(0, 11, "h3");  //Slider helligkeit
 NexDSButton bt1 = NexDSButton(0, 4, "bt1"); //Button Licht an/aus
-NexCheckbox c0 = NexCheckbox(0, 3, "c0");
+NexCheckbox c0 = NexCheckbox(0, 3, "c0");// page id, button id, Name
 
 NexTouch *nex_listen_list[]={
   &h0,
