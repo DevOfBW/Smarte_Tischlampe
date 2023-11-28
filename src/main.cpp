@@ -67,12 +67,12 @@ NexTouch *nex_listen_list[]={
   &h3,
   &bt1,
   &c0
-}
+};
 //DCF77
 //time_t time;
 //DCF77 DCF = DCF77(DCF_PIN, DCF_INTERRUPT);
 // wurde ein gültiges Signal gefunden
-bool g_bDCFTimeFound = false;
+//bool g_bDCFTimeFound = false;
 
 #pragma region DisplayFunctions
 bool sendCmdToDisplay(String command){
@@ -89,6 +89,9 @@ void h0PopCallback(void *ptr){
   uint32_t state=0;
   h0.getValue(&state);
   red=state;
+  strip_IndLi.fill(strip_IndLi.Color(red, green, blue));
+    strip_IndLi.setBrightness(bright);
+    strip_IndLi.show();
 }
 
 void h1PopCallback(void *ptr){
@@ -194,6 +197,10 @@ void setup()
     Serial.write(0xFF);
     Serial.write(0xFF);
   }
+
+  strip_IndLi.fill(strip_IndLi.Color(100, 0, 0));
+  strip_IndLi.setBrightness(150);
+  strip_IndLi.show();
 }
 
 
@@ -211,6 +218,8 @@ void loop()
   //Signalgeber(0,0);
   //Gestensensor();
   //RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
+
+  /*
   Serial.println(Serial.available());
   //HMI
   if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
@@ -249,6 +258,7 @@ void loop()
       hmi_input[i]=0;
     }
   }
+  */
 
   /*
   if(hmi_input[1]==0 && hmi_input[2]==5) //hmi_input[1]=Seite, hmi_input[2]=Button => Ein/Aus
