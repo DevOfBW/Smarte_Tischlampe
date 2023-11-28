@@ -154,7 +154,7 @@ void c0PopCallback(void *ptr){
   c0.getValue(&state);
 
   if(state == 1){
-    RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
+    RGB_Licht_Funktion(0, 0, 0, 0, 255, 4, true, true);
   }else{
     strip_IndLi.fill(strip_IndLi.Color(red, green, blue));
     strip_IndLi.setBrightness(bright);
@@ -536,7 +536,7 @@ void Serielle_Textausgabe(String textbox, String text)
       Serial.write(0xFF);
   }
 }
-
+/*
 int LDR_Messung()
 {
   helligkeit = analogRead(0);  
