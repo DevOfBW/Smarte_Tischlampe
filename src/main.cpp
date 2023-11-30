@@ -8,7 +8,7 @@
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
 #include "RevEng_PAJ7620.h"
 
-#include <Nextion.h>
+#include "Nextion.h"
 
 //#include "TimeLib.h"
 //#include "DCF77.h"
