@@ -222,7 +222,7 @@ void r_indirektb_lkPopCallback(void *ptr){
 
 
 // Setupmethode, diese Methode beeinhaltet alle Grundeinstellungen z.B. ob ein Kanal ein Eingang oder Ausgang ist. 
-// Diese Mehtode wird einmalig zum Programmstart ausgeführt
+// Diese Mehtode wird einmalig zum Programmstart ausgeführt.
 void setup() 
 {
 
