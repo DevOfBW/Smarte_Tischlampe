@@ -1,17 +1,13 @@
 #include <Arduino.h>
 //#include "avr8-stub.h"
 //#include "app_api.h" //only needed with flash breakpoints
-#include <Adafruit_NeoPixel.h>
-#include <Adafruit_NeoMatrix.h>
+#include <Adafruit_NeoPixel.h> //Für Lichtband aus Neopixeln -> Indirekte Beleuchtung
+#include <Adafruit_NeoMatrix.h> //Für Matrix aus Neopixeln -> Hauptleuchte
 #include <avr/power.h>
-
-#include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
-#include "RevEng_PAJ7620.h"
-
-#include "TimeLib.h"
-#include "DCF77.h"
-
-
+#include <Wire.h> //Für I2C-Kommunikation mit dem Gestensensor
+#include "RevEng_PAJ7620.h" //Für Gestensensor
+#include "TimeLib.h"  //Zeitbibliothek
+#include "DCF77.h"  //Für DCF77 Modul
 
 
 // Variablen:
@@ -19,17 +15,17 @@
 #define LED_COUNT_IndLi 14    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
 #define LED_PIN_IndRe    5    // LED Pin für die indirekte Beleuchtung auf der linken Seite an Pin 6
 #define LED_COUNT_IndRe 14    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
-#define main_light_width 5
-#define main_light_high 5
-#define main_light_pin 3
+#define main_light_width 5    //Anzahl der Pixel in der Breite der Neopixelmatrix
+#define main_light_high 5     //Anzahl der Pixel in der Höhe der Neopixelmatrix
+#define main_light_pin 3      //Pin an den die Neopixelmatrix angeschlossen ist
 
 #define DCF_PIN 2           // Connection pin to DCF 77 device
 #define DCF_INTERRUPT 0    // Interrupt number associated with pin
 #define PIN_LED 13
 #define PIN_schalter 7
 
-int helligkeit; //Wird benötigt für die LDR-Messung
-char hmi_input [7]={}; //Es werden 7 char benötigt, da wir 7 Datensätze pro Button übertragen, um diesen zu identifizieren
+int helligkeit;   //Wird benötigt für die LDR-Messung
+char hmi_input [7]={};    //Es werden 7 char benötigt, da wir 7 Datensätze pro Button übertragen, um diesen zu identifizieren
 bool flanke_Licht_ein = false;
 int modus=0;
 int rot=0;
@@ -97,25 +93,10 @@ void setup()
   pinMode(4, OUTPUT);
 
   //Gestensensor
-  /*Serial.println("PAJ7620 sensor demo: Recognizing all 9 gestures.");
-
  if( !sensor.begin() )           // return value of 0 == success
   {
     Serial.print("PAJ7620 I2C error - halting");
   } 
-
-  Serial.println("PAJ7620 init: OK");
-  Serial.println("Please input your gestures:"); */
-
-  //DCF77  
- /* pinMode(PIN_LED, OUTPUT);
-  pinMode(PIN_schalter, OUTPUT);
-  digitalWrite(PIN_schalter, LOW);
-  Serial.begin(9600); 
-  DCF.Start();
-  Serial.println("Warten auf DCF77-Zeit... ");
-  Serial.println("Dies dauert mindestens 2 Minuten, in der Regel eher länger.");
-  delay(2000); */
 }
 
 
@@ -123,10 +104,10 @@ void setup()
 void loop() 
 {
   //Signalgeber(0,0);
-  //Gestensensor();
+  Gestensensor();
 
   Serial.println(Serial.available());
-  //HMI
+  //HMI bitsteam 
   if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
   {
     for(int i=0;i<6;i++) //Eingehende Nummer von Inputs einlesen (xx yy zz dd aa uu ii) yy=Seite, zz=Button 1,2,3
@@ -206,7 +187,7 @@ void loop()
     if(flankenzaehler_ein_aus==1)
     {
       flanke_Licht_ein=true;
-      Serielle_Textausgabe("texbox_1.txt=","Licht Ein"); //Ausgabetext in Textbox 1 auf Seite 1
+      //Serielle_Textausgabe("texbox_1.txt=","Licht Ein"); //Ausgabetext in Textbox 1 auf Seite 1
       if(modus!=4 || modus !=6){
         RGB_Licht_Funktion(0, rot, gruen, blau, leuchtstaerke, modus, hauptleuchte_an, indirektebeleuchtung_an);
       }  
@@ -215,7 +196,7 @@ void loop()
     {
       flanke_Licht_ein=false;
       flankenzaehler_ein_aus=0;
-      Serielle_Textausgabe("texbox_1.txt=","Licht Aus"); //Ausgabetext in Textbox 1 auf Seite 1 
+      //Serielle_Textausgabe("texbox_1.txt=","Licht Aus"); //Ausgabetext in Textbox 1 auf Seite 1 
       RGB_Licht_Funktion(0, 0, 0, 0, 0, modus, hauptleuchte_an, indirektebeleuchtung_an);
     }
      HMI_Input_loeschen(hmi_input);
@@ -281,28 +262,6 @@ void loop()
     blau=28;
     RGB_Licht_Funktion(0, rot, gruen, blau, setze_helligkeit, modus, hauptleuchte_an, indirektebeleuchtung_an);
   }
- 
-  
-// das Signal wird nur aller 5 Sekunden abgefragt
- /* delay(950);
-  digitalWrite(PIN_LED, HIGH);
-  delay(50);
-  digitalWrite(PIN_LED, LOW);
-  time_t DCFtime = DCF.getTime(); // Check if new DCF77 time is available
-  if (DCFtime!=0)
-  {
-    Serial.println("Time is updated");
-    setTime(DCFtime);
-    g_bDCFTimeFound = true;
-  }
-  
-  // die Uhrzeit wurde gesetzt, also LED nach kurzer Zeit ein
-  if (g_bDCFTimeFound)
-  {
-    delay(50);
-    digitalWrite(PIN_LED, HIGH);
-  }
-  digitalClockDisplay();*/
 }
 
 
@@ -374,54 +333,63 @@ Gesture gesture;                  // Gesture is an enum type from RevEng_PAJ7620
     case GES_FORWARD:
       {
         Serial.println("GES_FORWARD");
+        Serielle_Textausgabe("texbox_1.txt=","GES_FORWARD");
         break;
       }
 
     case GES_BACKWARD:
       {
         Serial.println("GES_BACKWARD");
+        Serielle_Textausgabe("texbox_1.txt=","GES_BACKWARD");
         break;
       }
 
     case GES_LEFT:
       {
         Serial.println("GES_LEFT");
+        Serielle_Textausgabe("texbox_1.txt=","GES_LEFT");
         break;
       }
 
     case GES_RIGHT:
       {
         Serial.println("GES_RIGHT");
+        Serielle_Textausgabe("texbox_1.txt=","GES_RIGHT");
         break;
       }
 
     case GES_UP:
       {
         Serial.println("GES_UP");
+        Serielle_Textausgabe("texbox_1.txt=","GES_UP");
         break;
       }
 
     case GES_DOWN:
       {
         Serial.println("GES_DOWN");
+        Serielle_Textausgabe("texbox_1.txt=","GES_DOWN");
         break;
       }
 
     case GES_CLOCKWISE:
       {
         Serial.println("GES_CLOCKWISE");
+        Serielle_Textausgabe("texbox_1.txt=","GES_CLOCKWISE");
         break;
       }
 
     case GES_ANTICLOCKWISE:
       {
         Serial.println("GES_ANTICLOCKWISE");
+        Serielle_Textausgabe("texbox_1.txt=","GES_ANTICLOCKWISE");
         break;
       }
 
     case GES_WAVE:
       {
         Serial.println("GES_WAVE");
+        Serielle_Textausgabe("texbox_1.txt=","GES_WAVE");
         break;
       }
 
@@ -430,8 +398,7 @@ Gesture gesture;                  // Gesture is an enum type from RevEng_PAJ7620
         break;
       }
   }
-
-  delay(100);
+  //delay(100);
   return 1;
 }
 
