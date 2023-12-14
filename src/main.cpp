@@ -1,17 +1,19 @@
+//TODO: in allen Libraries examples löschen + alles was sonst auch nicht benötigt wird löschen
+
 #include <Arduino.h>
 //#include "avr8-stub.h"
 //#include "app_api.h" //only needed with flash breakpoints
-#include <Adafruit_NeoPixel.h>
-#include <Adafruit_NeoMatrix.h>
+#include <Adafruit_NeoPixel.h>  //Indirekte Beleuchtung
+#include <Adafruit_NeoMatrix.h>  //Hauptleuchte
 #include <avr/power.h>
 
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
-#include "RevEng_PAJ7620.h"
+#include "RevEng_PAJ7620.h"  //Gestensensor
 
 #include "Nextion.h"
 #include "Config.h"
 
-
+#include <RTClib.h>
 
 
 // Variablen:
@@ -26,6 +28,11 @@
 #define PIN_LED 13
 #define PIN_schalter 7
 
+#define PIN_summer 4 //Pin an dem der Summer angeschlossen ist
+//#define CLOCK_INTERRUPT_PIN 2 //Interruptpin RTC -> SQW
+const byte PIN_SQW = 2; //Interruptpin RTC -> SQW pin is used to monitor the SQW 1Hz output from the DS3231
+volatile int flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
+
 int helligkeit; //Wird benötigt für die LDR-Messung
 bool flanke_Licht_ein = false;
 int modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
@@ -35,6 +42,11 @@ bool indirektebeleuchtung_an=false;
 int durchlaufzaehler_party_farbwechsel=0;
 volatile int flankenzaehler_ein_aus=0;
 int activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
+String aktuelleZeit; //Variable in welcher die Aktuelle Uhrzeit gespeichert wird
+String aktuelleTag;  //Variable in welcher der aktuelle Tag gespeichert wird
+String aktuelleDatum;  //Variable in welcher das aktuelle Datum gespeichert wird
+DateTime now_global;
+bool Weckzeit_ausgegeben = false; 
 
 int red,green,blue,bright;
 uint32_t memory;
@@ -47,6 +59,9 @@ int Gestensensor(); //Gestensensor
 int LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(String, String); //Textausgabe zum HMI
 void HMI_Input_loeschen(char*);
+void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
+void displayTime (); //Ausgabe der aktuellen Zeit
+
 
 
 // Objekte:
@@ -64,6 +79,12 @@ Adafruit_NeoMatrix main_light(main_light_width, main_light_high,main_light_pin, 
 
 //Gestensensorobjekt
 RevEng_PAJ7620 sensor = RevEng_PAJ7620();
+
+//Wecker + Uhrzeit
+RTC_DS3231 rtc;
+char wochentage[7][12] = {"Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag","Sonntag"};
+char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"};  
+
 
 
 //Displayelemente
@@ -97,7 +118,9 @@ NexTouch *nex_listen_list[]={
   &r_indirektb_lk
 };
 
+
 #pragma region DisplayFunctions
+//TODO: Wird die folgende Funktion gebraucht, weil wir schon so eine Funktion haben??
 bool sendCmdToDisplay(String command){
   Serial.print(command);
   Serial.write(0xFF);
@@ -238,7 +261,7 @@ void setup()
   main_light.show(); //Initialize all pixels from indirect light strip left to OFF
 
   //Signalgeber (Summer)
-  pinMode(4, OUTPUT);
+  pinMode(PIN_summer, OUTPUT); 
 
   //Gestensensor
   /*Serial.println("PAJ7620 sensor demo: Recognizing all 9 gestures.");
@@ -271,12 +294,40 @@ void setup()
   cmd+= "\"";
   for(int i=0 ; i<=2 ; i++) //Mithilfe dieser Schleife wird die Textbox 1 zurückgesetzt, muss immer 2 mal gemacht werden damit es zuverlässig funktioniert
   {
-    Serial.print("vis b0,0"); //Hiding Button to next page TODO: Make page 1 available
+    Serial.println("vis b0,0"); //Hiding Button to next page TODO: Make page 1 available
     Serial.write(0xFF);
     Serial.write(0xFF);
     Serial.write(0xFF);
   }
+
+  //RTC
+  
+  if (! rtc.begin()) {
+    //TODO: Ausgabe der Fehlermeldung auf Touchdisplay
+    Serial.println("RTC nicht gefunden");
+    Serial.flush();
+    abort();
+  }
+
+   rtc.disable32K();
+
+  if (rtc.lostPower()) {
+    //TODO: Implementieren über Touchdisplay
+    Serial.println("RTC lost power, let's set the time!");
+    // When time needs to be set on a new device, or after a power loss, the
+    // following line sets the RTC to the date & time this sketch was compiled
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // This line sets the RTC with an explicit date & time, for example to set
+    // January 21, 2014 at 3am you would call:
+    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0)); (Jahr, Monat, Tag, Stunde, Minute, Sekunde)
+  }
+  rtc.writeSqwPinMode(DS3231_SquareWave1Hz);   //Configure SQW pin on the DS3231 to output a 1Hz squarewave to Arduino pin 2 (SQWinput) for timing
+  pinMode(PIN_SQW, INPUT); //Configure the SQWinput pin as an INPUT to monitor the SQW pin of the DS3231.
+  digitalWrite (PIN_SQW, HIGH); //Enable the internal pull-up resistor, since the SQW pin on the DS3231 is an Open Drain output.
+  attachInterrupt(digitalPinToInterrupt(PIN_SQW), ISR_RTC, FALLING); //Configure SQWinput (pin 2 of the Arduino) for use by the Interrupt Service Routine (Isr)
+  flanke_rtc_sqw = 1; //Initialize EDGE equal to 1. The Interrupt Service Routine will make EDGE equal to zero when triggered by a falling clock edge on SQW
 }
+
 
 
 // Main-Code-Schleife, diese Methode wird ständig wiederholt
@@ -303,6 +354,97 @@ void loop()
   Serial.write(0xff);
 */
 
+
+  if (flanke_rtc_sqw == 0) //Test if EDGE has been made equal to zero by the Interrrupt Service Routine(ISR).  If it has, then update the time displayed on the clock
+  {
+    displayTime ();
+    flanke_rtc_sqw = 1; // The time will not be updated again until another falling clock edge is detected on the SQWinput pin of the Arduino.
+  }
+
+//Wecker
+  String Weckzeit;
+  int StundeWeckzeit = 21;
+  int MinuteWeckzeit = 58;
+
+  if (StundeWeckzeit < 10 && MinuteWeckzeit < 10) Weckzeit = "0" + String(StundeWeckzeit) + ":0" + String(MinuteWeckzeit);
+  if (StundeWeckzeit < 10 && MinuteWeckzeit > 9) Weckzeit = "0" + String(StundeWeckzeit) + ":" + String(MinuteWeckzeit);
+  if (StundeWeckzeit > 9 && MinuteWeckzeit < 10) Weckzeit = String(StundeWeckzeit) + ":0" + String(MinuteWeckzeit);
+  if (StundeWeckzeit > 9 && MinuteWeckzeit > 9) Weckzeit = String(StundeWeckzeit) + ":" + String(MinuteWeckzeit);
+//TODO: Variable Weckzeit ausgegeben muss später mal aus false
+  
+  if(Weckzeit_ausgegeben == false)
+  { 
+    Serial.println("Weckzeit: " + Weckzeit);
+    Weckzeit_ausgegeben=true;
+  }
+
+
+
+}
+
+//Interrupt Service Routine - This routine is performed when a falling edge on the 1Hz SQW clock from the RTC is detected
+void ISR_RTC () {
+    flanke_rtc_sqw = 0; //A falling edge was detected on the SQWinput pin.  Now set EDGE equal to 0.
+}
+
+void displayTime () {
+    DateTime now = rtc.now();
+
+    Serial.print(now.year(), DEC);
+    Serial.print('/');
+    if(now.month()<10)
+    {
+        Serial.print("0");
+      	Serial.print(now.month(), DEC);
+    }else{
+      Serial.print(now.month(), DEC);
+    }
+    Serial.print('/');
+    if(now.day()<10)
+    {
+      Serial.print("0");
+      Serial.print(now.day(), DEC);
+    }else{
+      Serial.print(now.day(), DEC);
+    }
+    Serial.print(" (");
+    Serial.print(wochentage[now.dayOfTheWeek()]);
+    Serial.print(") ");
+    if(now.hour() < 10)
+    {
+      Serial.print("0");
+      Serial.print(now.hour(), DEC);
+    }else{
+      Serial.print(now.hour(), DEC);
+    }
+    Serial.print(':');
+    if(now.minute() < 10)
+    {
+      Serial.print("0");
+      Serial.print(now.minute(), DEC);
+    }else{
+      Serial.print(now.minute(), DEC);
+    }
+    Serial.print(':');
+    if(now.second() < 10)
+    {
+      Serial.print("0");
+      Serial.print(now.second(), DEC);
+    }else{
+      Serial.print(now.second(), DEC);
+    }
+    Serial.println();
+
+    Serial.print("Temperatur: ");
+    Serial.print(rtc.getTemperature());
+    Serial.println(" °C");
+
+    Serial.println();
+
+    aktuelleZeit  = String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
+    aktuelleTag   = wochentage[now.dayOfTheWeek()];
+    aktuelleDatum = String(now.day()) + "." + String(now.month()) + "." + String(now.year());
+    now_global = now;
 }
 
 void setModusActive(){
@@ -331,12 +473,11 @@ void setModusActive(){
   }
 }
 
-
 int LDR_Messung()
 {
   helligkeit = analogRead(0);
-  Serial.println(helligkeit);
-  delay(500);
+  //Serial.println(helligkeit);
+  return helligkeit;
   
 
 /*
@@ -451,7 +592,6 @@ int LDR_Messung()
 */
 }
 
-
 void Serielle_Textausgabe(String textbox, String text)
 {
   String cmd;
@@ -463,6 +603,7 @@ void Serielle_Textausgabe(String textbox, String text)
       Serial.write(0xFF);
   }
 }
+
 /*
 int LDR_Messung()
 {
@@ -470,7 +611,6 @@ int LDR_Messung()
   return helligkeit;
 }
 */
-
 
 int Gestensensor()
 {
@@ -538,8 +678,6 @@ Gesture gesture;                  // Gesture is an enum type from RevEng_PAJ7620
         break;
       }
   }
-
-  delay(100);
   return 1;
 }
 
