@@ -26,7 +26,7 @@ int helligkeit; //Wird benötigt für die LDR-Messung
 bool flanke_Licht_ein = false;
 int modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
 int modNeu=0;
-int leuchtstaerke=0;
+//int leuchtstaerke=0;
 bool hauptleuchte_an=false;
 bool indirektebeleuchtung_an=false;
 int durchlaufzaehler_party_farbwechsel=0;
@@ -38,14 +38,10 @@ int parGreen[14]={2, 5, 32, 78, 134, 189, 232, 254, 251, 224, 178, 122, 67, 24};
 int parBright[11]={128, 169, 196, 202, 185, 149, 107, 71, 54, 60, 87};
 int count=0;
 
-/*
-struct lichter{
-  int red,green,blue,bright;
-};//0 Aktive Farbe, 1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
-
-struct lichter Modi[7];
-*/
 int red,green,blue,bright;
+//Speicher für den Mixmodus
+int indRed,indGreen,indBlue,indBright;
+int mainRed,mainGreen,mainBlue,mainBright;
 uint32_t memory;
 
 
@@ -56,8 +52,12 @@ int Gestensensor(); //Gestensensor
 int LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(String, String); //Textausgabe zum HMI
 void HMI_Input_loeschen(char*);
-void setModusActive();
+boolean setModusActive(int);
 void partymodus();
+void refreshColours();
+void activateIndBel(int, int, int, int);
+void activateHauptBel(int, int, int, int);
+void cmdForDisplay(String); //Textausgabe zum HMI, nur einmal für bool Werte?
 
 
 // Objekte:
@@ -71,7 +71,8 @@ Adafruit_NeoPixel strip_IndRe(LED_COUNT_IndRe, LED_PIN_IndRe, NEO_GRB + NEO_KHZ8
 // NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 // NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 // NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
-Adafruit_NeoMatrix main_light(main_light_width, main_light_high,main_light_pin, NEO_MATRIX_TOP+NEO_MATRIX_LEFT+NEO_MATRIX_ROWS ,NEO_GRB+NEO_KHZ800);
+Adafruit_NeoPixel main_light(25, main_light_pin, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
+//Adafruit_NeoMatrix main_light(main_light_width, main_light_high,main_light_pin, NEO_MATRIX_TOP+NEO_MATRIX_LEFT+NEO_MATRIX_ROWS ,NEO_GRB+NEO_KHZ800);
 
 //Gestensensorobjekt
 RevEng_PAJ7620 sensor = RevEng_PAJ7620();
@@ -85,13 +86,14 @@ NexSlider h_blue_ls = NexSlider(7, 6, "h_blue_ls"); //Slider blau
 NexSlider h_hell_ls = NexSlider(7, 8, "h3");  //Slider helligkeit
 NexDSButton bt_save_ls = NexDSButton(7, 2, "bt_save_ls"); //Button Licht an/aus
 NexButton b_switch_ls = NexButton(7,15,"b_switch_ls");  //Button um die Lampen umzuschalten
-NexDSButton bt_lernen_lk = NexDSButton(1,13,"bt_lernen_lk");
-NexDSButton bt_relax_lk = NexDSButton(1,15,"bt_relax_lk");
-NexDSButton bt_auto_lk = NexDSButton(1,14,"bt_auto_lk");
-NexDSButton bt_party_lk = NexDSButton(1,16,"bt_party_lk");
-NexDSButton bt_mix_lk = NexDSButton(1,3,"bt_mix_lk");
-NexRadio r_hauptle_lk = NexRadio(1,10,"r_hauptle_lk");
-NexRadio r_indirektb_lk = NexRadio(1,11,"r_indirektb_lk");
+NexDSButton bt_lernen_lk = NexDSButton(1,9,"bt_lernen_lk");
+NexDSButton bt_relax_lk = NexDSButton(1,11,"bt_relax_lk");
+NexDSButton bt_auto_lk = NexDSButton(1,10,"bt_auto_lk");
+NexDSButton bt_party_lk = NexDSButton(1,12,"bt_party_lk");
+NexDSButton bt_mix_lk = NexDSButton(1,13,"bt_mix_lk");
+NexRadio r_hauptle_lk = NexRadio(1,7,"r_hauptle_lk");
+NexRadio r_indirektb_lk = NexRadio(1,8,"r_indirektb_lk");
+NexButton b_mixco_lk = NexButton(1,14,"b_mixco_lk");
 
 NexTouch *nex_listen_list[]={
   &h_red_ls,
@@ -106,7 +108,8 @@ NexTouch *nex_listen_list[]={
   &bt_party_lk,
   &bt_mix_lk,
   &r_hauptle_lk,
-  &r_indirektb_lk
+  &r_indirektb_lk,
+  &b_mixco_lk
 };
 
 #pragma region DisplayFunctions
@@ -117,118 +120,144 @@ bool sendCmdToDisplay(String command){
   Serial.write(0xFF);
 }
 
-void setColorsActive(){
-  if (activeLamp==2)
-  {
-    main_light.fill(main_light.Color(red, green, blue));
-    main_light.setBrightness(bright);
-    main_light.show();
-  }else /*if (activeLamp==3)*/{
-    strip_IndLi.fill(strip_IndLi.Color(red, green, blue));
-    strip_IndLi.setBrightness(bright);
-    strip_IndLi.show();
-    strip_IndRe.fill(strip_IndRe.Color(red, green, blue));
-    strip_IndRe.setBrightness(bright);
-    strip_IndRe.show();
-  }
-}
-
-/*
-void h0PushCallback(void *ptr)      fuer Touch Press Event*/
-
 void h_red_lsPopCallback(void *ptr){
   h_red_ls.getValue(&memory);
   red=memory;
-  setColorsActive();
+  cmdForDisplay("n_red_ls.val="+red);
+  refreshColours();
 }
 
 void h_green_lsPopCallback(void *ptr){
   h_green_ls.getValue(&memory);
   green=memory;
-  setColorsActive();
+  cmdForDisplay("n_green_ls.val="+green);
+  refreshColours();
 }
 
 void h_blue_lsPopCallback(void *ptr){
   h_blue_ls.getValue(&memory);
   blue=memory;
-  setColorsActive();
+  cmdForDisplay("n_blue_ls.val="+blue);
+  refreshColours();
 }
 
 void h_hell_lsPopCallback(void *ptr){
   h_hell_ls.getValue(&memory);
   bright=memory;
-  setColorsActive();
+  cmdForDisplay("n_hell_ls.val="+bright);
+  refreshColours();
 }
 
-// TODO - Die Farbwerte für den aktuellen Modus speichern
+//Die Farbwerte für den aktuellen Modus speichern
+//Speichert die Werte für die aktiven Lampen
 void bt_save_lsPopCallback(void *ptr){
   uint32_t state=0;
   bt_save_ls.getValue(&state);
 
   if(state == 1){
-    strip_IndLi.fill(strip_IndLi.Color(red, green, blue));
-    strip_IndLi.setBrightness(bright);
-    strip_IndLi.show();
-  }else{
-    strip_IndLi.setBrightness(0);
-    strip_IndLi.show();
+    if(activeLamp==1){
+      indRed=red;
+      indBlue=blue;
+      indGreen=green;
+    }
+    if(activeLamp==2){
+      mainRed=red;
+      mainBlue=blue;
+      mainGreen=green;
+    }
   }
-
+  bt_save_ls.setValue(0);
+  //cmdForDisplay("bt_save_ls.val=0");
 }
 
 void b_switch_lsPopCallback(void *ptr){
   String text;
+  activeLamp++;
   switch(activeLamp){
-    case 0: activeLamp=1;
-       text="Haupt-\rleuchte";
-       break;
-    case 1: activeLamp=2;
-       text="Neben-\rleuchte";
-       break;
-    case 2: activeLamp=3;
-       text="Beide\rLeuchten";
-       break;
-    default: activeLamp=0;
-       text="Beide\raus";
-       break;
+    case 1: 
+        hauptleuchte_an=true;
+        indirektebeleuchtung_an=false;
+        text="Haupt-\rleuchte";
+        red=mainRed;
+        blue=mainBlue;
+        green=mainGreen;
+        bright=mainBright;
+        break;
+    case 2: 
+        hauptleuchte_an=false;
+        indirektebeleuchtung_an=true;
+        text="Neben-\rleuchte";
+        red=indRed;
+        blue=indBlue;
+        green=indGreen;
+        bright=indBright;
+        break;
+    default: 
+        hauptleuchte_an=false;
+        indirektebeleuchtung_an=false;
+        text="Beide\raus";
+        activeLamp=0;
+        break;
   }
   Serielle_Textausgabe("b_switch_ls.txt=",text);
-  setColorsActive();
+  refreshColours();
+  cmdForDisplay("n_hell_ls.val="+bright);
+  cmdForDisplay("n_red_ls.val="+red);
+  cmdForDisplay("n_blue_ls.val="+blue);
+  cmdForDisplay("n_green_ls.val="+green);
+  cmdForDisplay("h_hell_ls.val="+bright);
+  cmdForDisplay("h_red_ls.val="+red);
+  cmdForDisplay("h_blue_ls.val="+blue);
+  cmdForDisplay("h_green_ls.val="+green);
 }
 
 void bt_lernen_lkPopCallback(void *ptr){
-  modus=1; //Arbeitslicht (Lernen)
-  Serielle_Textausgabe("t_actmod_lk.txt=","Lernen"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+  if(!setModusActive(1)){
+    cmdForDisplay("bt_lernen_lk.val=1");
+  }
 }
 
 void bt_relax_lkPopCallback(void *ptr){
-  modus=2; //Entspannungslicht (Relax)
-  Serielle_Textausgabe("t_actmod_lk.txt=","Relax"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+  if(!setModusActive(2)){
+    cmdForDisplay("bt_relax_lk.val=1");
+  }
 }
 
 void bt_party_lkPopCallback(void *ptr){
-  modus=4; //Party
-  Serielle_Textausgabe("t_actmod_lk.txt=","Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+  if(!setModusActive(4)){
+    cmdForDisplay("bt_party_lk.val=1");
+  }
 }
 
 void bt_auto_lkPopCallback(void *ptr){
-  modus=6; //Lichtabhängige Lichtansteuerung (Automatik)
-  Serielle_Textausgabe("t_actmod_lk.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+  if(!setModusActive(6)){
+    cmdForDisplay("bt_auto_lk.val=1");
+  }
 }
 
 void bt_mix_lkPopCallback(void *ptr){
-  modus=3; //Farben mix
-  Serielle_Textausgabe("t_actmod_lk.txt=","Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+  if(!setModusActive(3)){
+    cmdForDisplay("bt_mix_lk.val=1");
+  }
+}
+
+//Konfigurationsbutton
+void b_mixco_lkPopCallback(void *ptr){
+  if(!setModusActive(3)){
+    cmdForDisplay("bt_mix_lk.val=1");
+  }
 }
 
 void r_hauptle_lkPopCallback(void *ptr){
   r_hauptle_lk.getValue(&memory);
-  hauptleuchte_an=memory?true:false;
+  hauptleuchte_an=(memory==0)?false:true;
+  refreshColours();
 }
 
 void r_indirektb_lkPopCallback(void *ptr){
   r_indirektb_lk.getValue(&memory);
-  indirektebeleuchtung_an=memory?true:false;
+  indirektebeleuchtung_an=(memory==0)?false:true;
+  refreshColours();
 }
 #pragma endregion
 
@@ -281,17 +310,7 @@ void setup()
   bt_mix_lk.attachPop(bt_mix_lkPopCallback);
   r_hauptle_lk.attachPop(r_hauptle_lkPopCallback);
   r_indirektb_lk.attachPop(r_indirektb_lkPopCallback);
-
-  //HMI
-  String cmd; 
-  cmd+= "\"";
-  for(int i=0 ; i<=2 ; i++) //Mithilfe dieser Schleife wird die Textbox 1 zurückgesetzt, muss immer 2 mal gemacht werden damit es zuverlässig funktioniert
-  {
-    Serial.print("vis b0,0"); //Hiding Button to next page TODO: Make page 1 available
-    Serial.write(0xFF);
-    Serial.write(0xFF);
-    Serial.write(0xFF);
-  }
+  b_mixco_lk.attachPop(b_mixco_lkPopCallback);
 }
 
 
@@ -299,63 +318,109 @@ void setup()
 void loop() 
 {
   nexLoop(nex_listen_list);
-  if(modNeu!=modus){
-    setModusActive();
-  }
 
   if(modus==4){
     partymodus();
   }
-  // TODO: Je nach aktivem Modus die Lampen ansteuern?
   //RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
   //RGB_Licht_Funktion(0, 0, 0, 0, 255, 6);
   //Signalgeber(0,0);
   //Gestensensor();
   //RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
-
-/*
-  Serial.print("va0.val=42");   //Sending Code to the Display; this case: value of va0 is 42
-  Serial.write(0xff);           //After every command three times this line
-  Serial.write(0xff);
-  Serial.write(0xff);
-
-  Serial.print("vis t3,0");   //Hiding object t3
-  Serial.write(0xff);
-  Serial.write(0xff);
-  Serial.write(0xff);
-*/
-
 }
 
-void setModusActive(){
-  switch (modNeu){
+boolean setModusActive(int newMod){
+  if(modus==newMod){
+    return 0;
+  }
+  //alten Modus abschalten
+  switch(modus){
+    case 1:
+      cmdForDisplay("bt_lernen_lk.val=0");
+      //Serielle_Textausgabe("bt_lernen_lk.val=","0"); 
+      break;
+    case 2:
+      cmdForDisplay("bt_relax_lk.val=0");
+      break;
+    case 3:
+      cmdForDisplay("bt_mix_lk.val=0");
+      break;
+    case 4:
+      cmdForDisplay("bt_party_lk.val=0");
+      break;
+    case 6:
+      cmdForDisplay("bt_auto_lk.val=0");
+      break;
+  }
+
+  switch (newMod){
     case 1: //Lernen
       red=255;
       green=255;
       blue=255;
       bright=255;
+      Serielle_Textausgabe("t_actmod_lk.txt=","Lernen"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      refreshColours();
       break;
     case 2: //Entspannungslicht (Relax)
       red=241;
       green=142;
       blue=28;
       bright=255;
+      Serielle_Textausgabe("t_actmod_lk.txt=","Relax"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      refreshColours();
       break;
     case 4: //Party
+      Serielle_Textausgabe("t_actmod_lk.txt=","Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
         //wird in anderen Funktion gehändelt
         //Task aktivieren?
       break;
     case 3: //Farben mix
+      Serielle_Textausgabe("t_actmod_lk.txt=","Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      activateHauptBel(mainRed,mainGreen,mainBlue,mainBright);
+      activateIndBel(indRed, indGreen, indBlue, indBright);
       break;
     case 6: //Lichtabhängige Lichtansteuerung (Automatik)
+      red=255;
+      green=0;
+      blue=0;
+      bright=150;
+      Serielle_Textausgabe("t_actmod_lk.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      refreshColours();
       break;
     default:
       break;
   }
-  //alten Modus abschalten
-  switch(modus){
-    
+  modus=newMod;
+  return 1;
+}
+
+void refreshColours(){
+  if(indirektebeleuchtung_an){
+    activateIndBel(red, green, blue, bright);
+  }else{
+    activateIndBel(0,0,0,0);
   }
+  if(hauptleuchte_an){
+    activateHauptBel(red, green, blue, bright);
+  }else{
+    activateHauptBel(0,0,0,0);
+  }
+}
+
+void activateIndBel(int rot, int gruen, int blau, int hell){
+  strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
+  strip_IndLi.setBrightness(hell);
+  strip_IndLi.show();
+  strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
+  strip_IndRe.setBrightness(hell);
+  strip_IndRe.show();
+}
+
+void activateHauptBel(int rot, int gruen, int blau, int hell){
+  main_light.fill(main_light.Color(rot, gruen, blau));
+  main_light.setBrightness(hell);
+  main_light.show();
 }
 
 void partymodus(){
@@ -385,6 +450,28 @@ void Serielle_Textausgabe(String textbox, String text)
       Serial.write(0xFF);
   }
 }
+
+void cmdForDisplay(String cmd)
+{
+  Serial.print(cmd);
+  Serial.write(0xFF);
+  Serial.write(0xFF);
+  Serial.write(0xFF);
+}
+
+/*So wird es in der Nextion Bib gemacht
+void sendCommand(const char* cmd)
+{
+    while (nexSerial.available())
+    {
+        nexSerial.read();
+    }
+    
+    nexSerial.print(cmd);
+    nexSerial.write(0xFF);
+    nexSerial.write(0xFF);
+    nexSerial.write(0xFF);
+}*/
 
 int Gestensensor()
 {
@@ -467,6 +554,7 @@ int Signalgeber(int an, int modi)
   return 1;
 }
 
+/*
 int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int helligkeit, int modi, bool hauptleuchte, bool indirekt)
 {
   if(modi==1)  //Modi 1 = Arbeitslicht (ca.6000K) an + indirekte Beleuchtung in gleicher Farbe
@@ -592,4 +680,4 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
   } 
   return 1;
 }
-
+*/
