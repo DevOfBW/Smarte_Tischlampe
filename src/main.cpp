@@ -6,14 +6,13 @@
 #include <Adafruit_NeoPixel.h>  //Indirekte Beleuchtung
 #include <Adafruit_NeoMatrix.h>  //Hauptleuchte
 #include <avr/power.h>
-
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
 #include "RevEng_PAJ7620.h"  //Gestensensor
-
+#include <RTClib.h>  //Realtime-Clock
 #include "Nextion.h"
 #include "Config.h"
 
-#include <RTClib.h>
+
 
 
 // Variablen:
@@ -24,12 +23,9 @@
 #define main_light_width 5
 #define main_light_high 5
 #define main_light_pin 3
-
 #define PIN_LED 13
 #define PIN_schalter 7
-
 #define PIN_summer 4 //Pin an dem der Summer angeschlossen ist
-//#define CLOCK_INTERRUPT_PIN 2 //Interruptpin RTC -> SQW
 const byte PIN_SQW = 2; //Interruptpin RTC -> SQW pin is used to monitor the SQW 1Hz output from the DS3231
 volatile int flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
 
@@ -54,9 +50,7 @@ int Gestensensor(); //Gestensensor
 int LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(String, String); //Textausgabe zum HMI
 void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
-void displayTime (); //Ausgabe der aktuellen Zeit
-
-
+//void displayTime (); //Ausgabe der aktuellen Zeit
 
 // Objekte:
 Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
@@ -321,58 +315,6 @@ void setup()
   flanke_rtc_sqw = 1; //Initialize EDGE equal to 1. The Interrupt Service Routine will make EDGE equal to zero when triggered by a falling clock edge on SQW
 }
 
-
-
-// Main-Code-Schleife, diese Methode wird ständig wiederholt
-void loop() 
-{
-  nexLoop(nex_listen_list);
-
-  // TODO: Je nach aktivem Modus die Lampen ansteuern?
-  //RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
-  //RGB_Licht_Funktion(0, 0, 0, 0, 255, 6);
-  //Signalgeber(0,0);
-  //Gestensensor();
-  //RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
-
-/*
-  Serial.print("va0.val=42");   //Sending Code to the Display; this case: value of va0 is 42
-  Serial.write(0xff);           //After every command three times this line
-  Serial.write(0xff);
-  Serial.write(0xff);
-
-  Serial.print("vis t3,0");   //Hiding object t3
-  Serial.write(0xff);
-  Serial.write(0xff);
-  Serial.write(0xff);
-*/
-
-
- if (flanke_rtc_sqw == 0) //Test if EDGE has been made equal to zero by the Interrrupt Service Routine(ISR).  If it has, then update the time displayed on the clock
-  {
-    displayTime ();
-    flanke_rtc_sqw = 1; // The time will not be updated again until another falling clock edge is detected on the SQWinput pin of the Arduino.
-  }
-
-  String hmi_input=Serial.readString();
-  Serial.println(hmi_input);
-
- if(hmi_input.endsWith("b_wtag_m_uhr")){
-   Serielle_Textausgabe("t_wtag1_uhr.txt=", "Mo");
- }
- if(hmi_input.endsWith("b_wtag_p_uhr")){
-   Serielle_Textausgabe("t_wtag1_uhr.txt=", "Di");
- }
- 
-
-}
-
-
-//Interrupt Service Routine - This routine is performed when a falling edge on the 1Hz SQW clock from the RTC is detected
-void ISR_RTC () {
-    flanke_rtc_sqw = 0; //A falling edge was detected on the SQWinput pin.  Now set EDGE equal to 0.
-}
-
 void displayTime () {
     DateTime now = rtc.now();
 
@@ -423,6 +365,107 @@ void displayTime () {
     Serielle_Textausgabe("t_time_main.txt=", stunde+":"+minute+":"+sekunde);
     Serielle_Textausgabe("t_alarm_main.txt=", temperatur+" Grad C");
 }
+
+// Main-Code-Schleife, diese Methode wird ständig wiederholt
+void loop() 
+{
+  nexLoop(nex_listen_list);
+
+  // TODO: Je nach aktivem Modus die Lampen ansteuern?
+  //RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
+  //RGB_Licht_Funktion(0, 0, 0, 0, 255, 6);
+  //Signalgeber(0,0);
+  //Gestensensor();
+  //RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
+
+/*
+  Serial.print("va0.val=42");   //Sending Code to the Display; this case: value of va0 is 42
+  Serial.write(0xff);           //After every command three times this line
+  Serial.write(0xff);
+  Serial.write(0xff);
+
+  Serial.print("vis t3,0");   //Hiding object t3
+  Serial.write(0xff);
+  Serial.write(0xff);
+  Serial.write(0xff);
+*/
+
+
+ if (flanke_rtc_sqw == 0) //Test if EDGE has been made equal to zero by the Interrrupt Service Routine(ISR).  If it has, then update the time displayed on the clock
+  {
+    displayTime ();
+    flanke_rtc_sqw = 1; // The time will not be updated again until another falling clock edge is detected on the SQWinput pin of the Arduino.
+  }
+
+  String hmi_input=Serial.readString();
+  Serial.println(hmi_input);
+
+ if(hmi_input.endsWith("b_wtag_m_uhr")){
+   Serielle_Textausgabe("t_wtag1_uhr.txt=", "Mo");
+ }
+ if(hmi_input.endsWith("b_wtag_p_uhr")){
+   Serielle_Textausgabe("t_wtag1_uhr.txt=", "Di");
+ }
+ 
+
+}
+
+
+//Interrupt Service Routine - This routine is performed when a falling edge on the 1Hz SQW clock from the RTC is detected
+void ISR_RTC () {
+    flanke_rtc_sqw = 0; //A falling edge was detected on the SQWinput pin.  Now set EDGE equal to 0.
+}
+/*
+void displayTime () {
+    DateTime now = rtc.now();
+
+    String tag,monat,jahr,stunde,minute,sekunde,temperatur,w_tag;
+
+    jahr=now.year();
+    monat=now.month();
+    tag=now.day();
+
+    if(now.month()<10)
+    {
+      monat=now.month();
+      monat="0" + monat;
+    }
+
+    if(now.day()<10)
+    {
+      tag=now.day();
+      tag="0" + tag;
+    }
+    
+    stunde=now.hour();
+    minute=now.minute();
+    sekunde=now.second();
+   
+    if(now.hour() < 10)
+    {
+      stunde=now.hour();
+      stunde="0"+stunde;
+    }
+    if(now.minute() < 10)
+    {
+      minute=now.minute();
+      minute="0"+minute;
+    }
+   
+    if(now.second() < 10)
+    {
+      sekunde=now.second();
+      sekunde="0"+sekunde;
+    }
+    
+    temperatur= rtc.getTemperature();
+    w_tag=wochentage[now.dayOfTheWeek()];
+
+    Serielle_Textausgabe("t_day_main.txt=", w_tag);
+    Serielle_Textausgabe("t_date_main.txt=", tag+"."+monat+"."+jahr);
+    Serielle_Textausgabe("t_time_main.txt=", stunde+":"+minute+":"+sekunde);
+    Serielle_Textausgabe("t_alarm_main.txt=", temperatur+" Grad C");
+}*/
 
 void setModusActive(){
   switch (modus){
