@@ -42,11 +42,7 @@ bool indirektebeleuchtung_an=false;
 int durchlaufzaehler_party_farbwechsel=0;
 volatile int flankenzaehler_ein_aus=0;
 int activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
-String aktuelleZeit; //Variable in welcher die Aktuelle Uhrzeit gespeichert wird
-String aktuelleTag;  //Variable in welcher der aktuelle Tag gespeichert wird
-String aktuelleDatum;  //Variable in welcher das aktuelle Datum gespeichert wird
-DateTime now_global;
-bool Weckzeit_ausgegeben = false; 
+
 
 int red,green,blue,bright;
 uint32_t memory;
@@ -82,7 +78,8 @@ RevEng_PAJ7620 sensor = RevEng_PAJ7620();
 
 //Wecker + Uhrzeit
 RTC_DS3231 rtc;
-char wochentage[7][12] = {"Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag","Sonntag"};
+char wochentage[7][12] = {"Sonntag","Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"};
+char wochentage_kurz[7][12] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"};  
 
 
@@ -361,24 +358,6 @@ void loop()
     flanke_rtc_sqw = 1; // The time will not be updated again until another falling clock edge is detected on the SQWinput pin of the Arduino.
   }
 
-//Wecker
-  String Weckzeit;
-  int StundeWeckzeit = 21;
-  int MinuteWeckzeit = 58;
-
-  if (StundeWeckzeit < 10 && MinuteWeckzeit < 10) Weckzeit = "0" + String(StundeWeckzeit) + ":0" + String(MinuteWeckzeit);
-  if (StundeWeckzeit < 10 && MinuteWeckzeit > 9) Weckzeit = "0" + String(StundeWeckzeit) + ":" + String(MinuteWeckzeit);
-  if (StundeWeckzeit > 9 && MinuteWeckzeit < 10) Weckzeit = String(StundeWeckzeit) + ":0" + String(MinuteWeckzeit);
-  if (StundeWeckzeit > 9 && MinuteWeckzeit > 9) Weckzeit = String(StundeWeckzeit) + ":" + String(MinuteWeckzeit);
-//TODO: Variable Weckzeit ausgegeben muss später mal aus false
-  
-  if(Weckzeit_ausgegeben == false)
-  { 
-    Serial.println("Weckzeit: " + Weckzeit);
-    Weckzeit_ausgegeben=true;
-  }
-
-
 
 }
 
@@ -390,61 +369,52 @@ void ISR_RTC () {
 void displayTime () {
     DateTime now = rtc.now();
 
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
+    String tag,monat,jahr,stunde,minute,sekunde,temperatur,w_tag;
+
+    jahr=now.year();
+    monat=now.month();
+    tag=now.day();
+    
     if(now.month()<10)
     {
-        Serial.print("0");
-      	Serial.print(now.month(), DEC);
-    }else{
-      Serial.print(now.month(), DEC);
+      monat=now.month();
+      monat="0" + monat;
     }
-    Serial.print('/');
+
     if(now.day()<10)
     {
-      Serial.print("0");
-      Serial.print(now.day(), DEC);
-    }else{
-      Serial.print(now.day(), DEC);
+      tag=now.day();
+      tag="0" + tag;
     }
-    Serial.print(" (");
-    Serial.print(wochentage[now.dayOfTheWeek()]);
-    Serial.print(") ");
+    
+    stunde=now.hour();
+    minute=now.minute();
+    sekunde=now.second();
+   
     if(now.hour() < 10)
     {
-      Serial.print("0");
-      Serial.print(now.hour(), DEC);
-    }else{
-      Serial.print(now.hour(), DEC);
+      stunde=now.hour();
+      stunde="0"+stunde;
     }
-    Serial.print(':');
     if(now.minute() < 10)
     {
-      Serial.print("0");
-      Serial.print(now.minute(), DEC);
-    }else{
-      Serial.print(now.minute(), DEC);
+      minute=now.minute();
+      minute="0"+minute;
     }
-    Serial.print(':');
+   
     if(now.second() < 10)
     {
-      Serial.print("0");
-      Serial.print(now.second(), DEC);
-    }else{
-      Serial.print(now.second(), DEC);
+      sekunde=now.second();
+      sekunde="0"+sekunde;
     }
-    Serial.println();
+    
+    temperatur= rtc.getTemperature();
+    w_tag=wochentage[now.dayOfTheWeek()];
 
-    Serial.print("Temperatur: ");
-    Serial.print(rtc.getTemperature());
-    Serial.println(" °C");
-
-    Serial.println();
-
-    aktuelleZeit  = String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
-    aktuelleTag   = wochentage[now.dayOfTheWeek()];
-    aktuelleDatum = String(now.day()) + "." + String(now.month()) + "." + String(now.year());
-    now_global = now;
+    Serielle_Textausgabe("t_day_main.txt=", w_tag);
+    Serielle_Textausgabe("t_date_main.txt=", tag+"."+monat+"."+jahr);
+    Serielle_Textausgabe("t_time_main.txt=", stunde+":"+minute+":"+sekunde);
+    Serielle_Textausgabe("t_alarm_main.txt=", temperatur+"Grad C");
 }
 
 void setModusActive(){
