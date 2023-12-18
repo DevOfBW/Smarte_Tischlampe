@@ -43,7 +43,6 @@ int durchlaufzaehler_party_farbwechsel=0;
 volatile int flankenzaehler_ein_aus=0;
 int activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
 
-
 int red,green,blue,bright;
 uint32_t memory;
 
@@ -81,8 +80,6 @@ RTC_DS3231 rtc;
 char wochentage[7][12] = {"Sonntag","Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"};
 char wochentage_kurz[7][12] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"};  
-
-
 
 //Displayelemente
 NexSlider h_red_ls = NexSlider(7, 1, "h_red_ls"); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
@@ -352,14 +349,19 @@ void loop()
 */
 
 
-  if (flanke_rtc_sqw == 0) //Test if EDGE has been made equal to zero by the Interrrupt Service Routine(ISR).  If it has, then update the time displayed on the clock
+ if (flanke_rtc_sqw == 0) //Test if EDGE has been made equal to zero by the Interrrupt Service Routine(ISR).  If it has, then update the time displayed on the clock
   {
     displayTime ();
     flanke_rtc_sqw = 1; // The time will not be updated again until another falling clock edge is detected on the SQWinput pin of the Arduino.
   }
 
+ 
+  
+    
+
 
 }
+
 
 //Interrupt Service Routine - This routine is performed when a falling edge on the 1Hz SQW clock from the RTC is detected
 void ISR_RTC () {
@@ -374,7 +376,7 @@ void displayTime () {
     jahr=now.year();
     monat=now.month();
     tag=now.day();
-    
+
     if(now.month()<10)
     {
       monat=now.month();
@@ -414,7 +416,7 @@ void displayTime () {
     Serielle_Textausgabe("t_day_main.txt=", w_tag);
     Serielle_Textausgabe("t_date_main.txt=", tag+"."+monat+"."+jahr);
     Serielle_Textausgabe("t_time_main.txt=", stunde+":"+minute+":"+sekunde);
-    Serielle_Textausgabe("t_alarm_main.txt=", temperatur+"Grad C");
+    Serielle_Textausgabe("t_alarm_main.txt=", temperatur+" Grad C");
 }
 
 void setModusActive(){
