@@ -53,7 +53,6 @@ int Signalgeber(int, int); //(An, Modus)
 int Gestensensor(); //Gestensensor
 int LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(String, String); //Textausgabe zum HMI
-void HMI_Input_loeschen(char*);
 void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
 void displayTime (); //Ausgabe der aktuellen Zeit
 
@@ -110,7 +109,7 @@ NexTouch *nex_listen_list[]={
   &bt_mix_lk,
   &r_hauptle_lk,
   &r_indirektb_lk
-};
+};  
 
 
 #pragma region DisplayFunctions
@@ -284,7 +283,7 @@ void setup()
   r_indirektb_lk.attachPop(r_indirektb_lkPopCallback);
 
   //HMI
-  String cmd; 
+ /*String cmd; 
   cmd+= "\"";
   for(int i=0 ; i<=2 ; i++) //Mithilfe dieser Schleife wird die Textbox 1 zurückgesetzt, muss immer 2 mal gemacht werden damit es zuverlässig funktioniert
   {
@@ -292,7 +291,7 @@ void setup()
     Serial.write(0xFF);
     Serial.write(0xFF);
     Serial.write(0xFF);
-  }
+  } */ 
 
   //RTC
   
@@ -355,10 +354,16 @@ void loop()
     flanke_rtc_sqw = 1; // The time will not be updated again until another falling clock edge is detected on the SQWinput pin of the Arduino.
   }
 
- 
-  
-    
+  String hmi_input=Serial.readString();
+  Serial.println(hmi_input);
 
+ if(hmi_input.endsWith("b_wtag_m_uhr")){
+   Serielle_Textausgabe("t_wtag1_uhr.txt=", "Mo");
+ }
+ if(hmi_input.endsWith("b_wtag_p_uhr")){
+   Serielle_Textausgabe("t_wtag1_uhr.txt=", "Di");
+ }
+ 
 
 }
 
