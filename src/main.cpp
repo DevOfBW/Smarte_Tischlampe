@@ -1,17 +1,14 @@
-//TODO: in allen Libraries examples löschen + alles was sonst auch nicht benötigt wird löschen
+//TODO: 19.12.2023 RAM: 39,6%  Flash: 42,1%
 
 #include <Arduino.h>
 //#include "avr8-stub.h"
 //#include "app_api.h" //only needed with flash breakpoints
 #include "Adafruit_NeoPixel.h"  //Indirekte Beleuchtung
-#include <avr/power.h>
+//#include <avr/power.h>
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
 #include "RevEng_PAJ7620.h"  //Gestensensor
 #include "RTClib.h"  //Realtime-Clock
 #include "Nextion.h"
-
-
-
 
 // Variablen:
 #define LED_PIN_IndLi    6    // LED Pin für die indirekte Beleuchtung auf der linken Seite an Pin 6
@@ -24,7 +21,8 @@
 #define PIN_LED 13
 #define PIN_schalter 7
 #define PIN_summer 4 //Pin an dem der Summer angeschlossen ist
-const byte PIN_SQW = 2; //Interruptpin RTC -> SQW pin is used to monitor the SQW 1Hz output from the DS3231
+#define PIN_SQW 2
+//const byte PIN_SQW = 2; //Interruptpin RTC -> SQW pin is used to monitor the SQW 1Hz output from the DS3231
 bool flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
 uint8_t helligkeit; //Wird benötigt für die LDR-Messung
 bool flanke_Licht_ein = false;
@@ -66,7 +64,7 @@ RevEng_PAJ7620 sensor = RevEng_PAJ7620();
 
 //Wecker + Uhrzeit
 RTC_DS3231 rtc;
-char wochentage[7][12] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
+char wochentage[7][3] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"};  
 
 //Displayelemente
@@ -285,7 +283,6 @@ void setup()
   } */ 
 
   //RTC
-  
   if (! rtc.begin()) {
     //TODO: Ausgabe der Fehlermeldung auf Touchdisplay
     Serial.println("RTC nicht gefunden");
@@ -389,55 +386,28 @@ void ISR_RTC () {
 }
 
 void displayTime () {
-    DateTime now = rtc.now();
+  DateTime now = rtc.now();
 
-  //TODO: ändern in chars keine Strings
-    String tag,monat,jahr,stunde,minute,sekunde,temperatur,w_tag;
+  char tag[3], monat[3], jahr[5], stunde[3], minute[3], sekunde[3], temperatur[5], w_tag[3],datum[13];
 
-    jahr=now.year();
-    monat=now.month();
-    tag=now.day();
+  // Umwandlung der Zahlen in Char-Arrays
+  sprintf(jahr, "%04d", now.year());
+  sprintf(monat, "%02d", now.month());
+  sprintf(tag, "%02d", now.day());
+  sprintf(stunde, "%02d", now.hour());
+  sprintf(minute, "%02d", now.minute());
+  sprintf(sekunde, "%02d", now.second());
+  dtostrf(rtc.getTemperature(), 6, 2, temperatur);
+  strcpy(w_tag, wochentage[now.dayOfTheWeek()]);
 
-    if(now.month()<10)
-    {
-      monat=now.month();
-      monat="0" + monat;
-    }
+  // Verkettung der Char-Arrays
+  sprintf(datum, "%s.%s.%s", tag, monat, jahr);
+  sprintf(stunde, "%s:%s:%s", stunde, minute, sekunde);
 
-    if(now.day()<10)
-    {
-      tag=now.day();
-      tag="0" + tag;
-    }
-    
-    stunde=now.hour();
-    minute=now.minute();
-    sekunde=now.second();
-   
-    if(now.hour() < 10)
-    {
-      stunde=now.hour();
-      stunde="0"+stunde;
-    }
-    if(now.minute() < 10)
-    {
-      minute=now.minute();
-      minute="0"+minute;
-    }
-   
-    if(now.second() < 10)
-    {
-      sekunde=now.second();
-      sekunde="0"+sekunde;
-    }
-    
-    temperatur= rtc.getTemperature();
-    w_tag=wochentage[now.dayOfTheWeek()];
-
-    Serielle_Textausgabe("t_day_main.txt=", w_tag);
-    Serielle_Textausgabe("t_date_main.txt=", tag+"."+monat+"."+jahr);
-    Serielle_Textausgabe("t_time_main.txt=", stunde+":"+minute+":"+sekunde);
-    Serielle_Textausgabe("t_alarm_main.txt=", temperatur+" Grad C");
+  Serielle_Textausgabe("t_day_main.txt=", w_tag);
+  Serielle_Textausgabe("t_date_main.txt=", datum);
+  Serielle_Textausgabe("t_time_main.txt=", stunde);
+  Serielle_Textausgabe("t_alarm_main.txt=", temperatur);
 }
 
 void setModusActive(){
