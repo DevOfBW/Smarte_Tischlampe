@@ -4,13 +4,11 @@
 //#include "avr8-stub.h"
 //#include "app_api.h" //only needed with flash breakpoints
 #include <Adafruit_NeoPixel.h>  //Indirekte Beleuchtung
-#include <Adafruit_NeoMatrix.h>  //Hauptleuchte
 #include <avr/power.h>
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
 #include "RevEng_PAJ7620.h"  //Gestensensor
 #include <RTClib.h>  //Realtime-Clock
 #include "Nextion.h"
-#include "Config.h"
 
 
 
@@ -27,30 +25,31 @@
 #define PIN_schalter 7
 #define PIN_summer 4 //Pin an dem der Summer angeschlossen ist
 const byte PIN_SQW = 2; //Interruptpin RTC -> SQW pin is used to monitor the SQW 1Hz output from the DS3231
-volatile int flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
+//TODO:Ändern in Boolean
+volatile uint8_t flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
 
-int helligkeit; //Wird benötigt für die LDR-Messung
+uint8_t helligkeit; //Wird benötigt für die LDR-Messung
 bool flanke_Licht_ein = false;
-int modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
-int leuchtstaerke=0;
+uint8_t modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
+uint8_t leuchtstaerke=0;
 bool hauptleuchte_an=false;
 bool indirektebeleuchtung_an=false;
 int durchlaufzaehler_party_farbwechsel=0;
-volatile int flankenzaehler_ein_aus=0;
-int activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
+volatile uint8_t flankenzaehler_ein_aus=0;
+uint8_t activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
 
-int red,green,blue,bright;
+uint8_t red,green,blue,bright;
 uint32_t memory;
 
 
 // Funktionen:
-int RGB_Licht_Funktion(int, int, int, int, int, int, bool, bool); //(Pixel,R,G,B,Helligkeit,Modus,Hauptleuchte_an,Indirektebeleuchtung_an)
-int Signalgeber(int, int); //(An, Modus)
-int Gestensensor(); //Gestensensor
+uint8_t RGB_Licht_Funktion(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, bool, bool); //(Pixel,R,G,B,Helligkeit,Modus,Hauptleuchte_an,Indirektebeleuchtung_an)
+uint8_t Signalgeber(uint8_t, uint8_t); //(An, Modus)
+uint8_t Gestensensor(); //Gestensensor
 int LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(String, String); //Textausgabe zum HMI
 void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
-//void displayTime (); //Ausgabe der aktuellen Zeit
+void displayTime (); //Ausgabe der aktuellen Zeit
 
 // Objekte:
 Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
@@ -63,15 +62,14 @@ Adafruit_NeoPixel strip_IndRe(LED_COUNT_IndRe, LED_PIN_IndRe, NEO_GRB + NEO_KHZ8
 // NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 // NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 // NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
-Adafruit_NeoMatrix main_light(main_light_width, main_light_high,main_light_pin, NEO_MATRIX_TOP+NEO_MATRIX_LEFT+NEO_MATRIX_ROWS ,NEO_GRB+NEO_KHZ800);
+Adafruit_NeoPixel main_light(25,main_light_pin, NEO_GRB + NEO_KHZ800);
 
 //Gestensensorobjekt
 RevEng_PAJ7620 sensor = RevEng_PAJ7620();
 
 //Wecker + Uhrzeit
 RTC_DS3231 rtc;
-char wochentage[7][12] = {"Sonntag","Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"};
-char wochentage_kurz[7][12] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
+char wochentage[7][12] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"};  
 
 //Displayelemente
@@ -315,56 +313,6 @@ void setup()
   flanke_rtc_sqw = 1; //Initialize EDGE equal to 1. The Interrupt Service Routine will make EDGE equal to zero when triggered by a falling clock edge on SQW
 }
 
-void displayTime () {
-    DateTime now = rtc.now();
-
-    String tag,monat,jahr,stunde,minute,sekunde,temperatur,w_tag;
-
-    jahr=now.year();
-    monat=now.month();
-    tag=now.day();
-
-    if(now.month()<10)
-    {
-      monat=now.month();
-      monat="0" + monat;
-    }
-
-    if(now.day()<10)
-    {
-      tag=now.day();
-      tag="0" + tag;
-    }
-    
-    stunde=now.hour();
-    minute=now.minute();
-    sekunde=now.second();
-   
-    if(now.hour() < 10)
-    {
-      stunde=now.hour();
-      stunde="0"+stunde;
-    }
-    if(now.minute() < 10)
-    {
-      minute=now.minute();
-      minute="0"+minute;
-    }
-   
-    if(now.second() < 10)
-    {
-      sekunde=now.second();
-      sekunde="0"+sekunde;
-    }
-    
-    temperatur= rtc.getTemperature();
-    w_tag=wochentage[now.dayOfTheWeek()];
-
-    Serielle_Textausgabe("t_day_main.txt=", w_tag);
-    Serielle_Textausgabe("t_date_main.txt=", tag+"."+monat+"."+jahr);
-    Serielle_Textausgabe("t_time_main.txt=", stunde+":"+minute+":"+sekunde);
-    Serielle_Textausgabe("t_alarm_main.txt=", temperatur+" Grad C");
-}
 
 // Main-Code-Schleife, diese Methode wird ständig wiederholt
 void loop() 
@@ -397,16 +345,41 @@ void loop()
     flanke_rtc_sqw = 1; // The time will not be updated again until another falling clock edge is detected on the SQWinput pin of the Arduino.
   }
 
-  String hmi_input=Serial.readString();
+
+String hmi_input=Serial.readString();
   Serial.println(hmi_input);
 
+static uint8_t wochentage_memory=0;
  if(hmi_input.endsWith("b_wtag_m_uhr")){
-   Serielle_Textausgabe("t_wtag1_uhr.txt=", "Mo");
+    wochentage_memory--;
+    if(wochentage_memory<0){
+      wochentage_memory=6;
+    }
+   Serielle_Textausgabe("t_wtag1_uhr.txt=",wochentage[wochentage_memory]);
  }
  if(hmi_input.endsWith("b_wtag_p_uhr")){
-   Serielle_Textausgabe("t_wtag1_uhr.txt=", "Di");
+   wochentage_memory++;
+    if(wochentage_memory>6){
+      wochentage_memory=0;
+    }
+   Serielle_Textausgabe("t_wtag1_uhr.txt=",wochentage[wochentage_memory]);
  }
- 
+
+ static uint8_t tag_memory=0;
+ if(hmi_input.endsWith("b_tag_m_uhr")){
+    tag_memory--;
+    if(tag_memory<1){
+      tag_memory=31;
+    }
+   Serielle_Textausgabe("t_tag1_uhr.txt=",String(tag_memory));
+ }
+ if(hmi_input.endsWith("b_tag_p_uhr")){
+   tag_memory++;
+    if(tag_memory>31){
+      tag_memory=1;
+    }
+   Serielle_Textausgabe("t_tag1_uhr.txt=",String(tag_memory));
+ }
 
 }
 
@@ -415,10 +388,11 @@ void loop()
 void ISR_RTC () {
     flanke_rtc_sqw = 0; //A falling edge was detected on the SQWinput pin.  Now set EDGE equal to 0.
 }
-/*
+
 void displayTime () {
     DateTime now = rtc.now();
 
+  //TODO: ändern in chars keine Strings
     String tag,monat,jahr,stunde,minute,sekunde,temperatur,w_tag;
 
     jahr=now.year();
@@ -465,7 +439,7 @@ void displayTime () {
     Serielle_Textausgabe("t_date_main.txt=", tag+"."+monat+"."+jahr);
     Serielle_Textausgabe("t_time_main.txt=", stunde+":"+minute+":"+sekunde);
     Serielle_Textausgabe("t_alarm_main.txt=", temperatur+" Grad C");
-}*/
+}
 
 void setModusActive(){
   switch (modus){
@@ -496,7 +470,6 @@ void setModusActive(){
 int LDR_Messung()
 {
   helligkeit = analogRead(0);
-  //Serial.println(helligkeit);
   return helligkeit;
   
 
@@ -632,7 +605,7 @@ int LDR_Messung()
 }
 */
 
-int Gestensensor()
+uint8_t Gestensensor()
 {
 Gesture gesture;                  // Gesture is an enum type from RevEng_PAJ7620.h
   gesture = sensor.readGesture();   // Read back current gesture (if any) of type Gesture
@@ -701,7 +674,7 @@ Gesture gesture;                  // Gesture is an enum type from RevEng_PAJ7620
   return 1;
 }
 
-int Signalgeber(int an, int modi)
+uint8_t Signalgeber(uint8_t an, uint8_t modi)
 {
   tone(4,264); // (pin, frequency, duration)
   delay(1000);
@@ -711,7 +684,7 @@ int Signalgeber(int an, int modi)
   return 1;
 }
 
-int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int helligkeit, int modi, bool hauptleuchte, bool indirekt)
+uint8_t RGB_Licht_Funktion(uint8_t pixelnummer, uint8_t rot, uint8_t gruen, uint8_t blau, uint8_t helligkeit, uint8_t modi, bool hauptleuchte, bool indirekt)
 {
   if(modi==1)  //Modi 1 = Arbeitslicht (ca.6000K) an + indirekte Beleuchtung in gleicher Farbe
   {
@@ -723,7 +696,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
     {
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
       strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.fill(main_light.Color(rot, gruen, blau));
       main_light.show();
       strip_IndLi.show();
       strip_IndRe.show();
@@ -737,7 +710,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
     }
     else if(hauptleuchte==true)
     {
-      main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.fill(main_light.Color(rot, gruen, blau));
       main_light.show();
     }
   }
@@ -751,7 +724,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
     {
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
       strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.fill(main_light.Color(rot, gruen, blau));
       main_light.show();
       strip_IndLi.show();
       strip_IndRe.show();
@@ -765,7 +738,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
     }
     else if(hauptleuchte==true)
     {
-      main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.fill(main_light.Color(rot, gruen, blau));
       main_light.show();
     }
   }
@@ -783,7 +756,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
     {
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
       strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.fill(main_light.Color(rot, gruen, blau));
       main_light.show();
       strip_IndLi.show();
       strip_IndRe.show();
@@ -797,7 +770,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
     }
     else if(hauptleuchte==true)
     {
-      main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.fill(main_light.Color(rot, gruen, blau));
       main_light.show();
     }
   }
@@ -816,7 +789,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
     {
       strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
       strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.fill(main_light.Color(rot, gruen, blau));
       main_light.show();
       strip_IndLi.show();
       strip_IndRe.show();
@@ -830,7 +803,7 @@ int RGB_Licht_Funktion(int pixelnummer, int rot, int gruen, int blau, int hellig
     }
     else if(hauptleuchte==true)
     {
-      main_light.fillScreen(main_light.Color(rot, gruen, blau));
+      main_light.fill(main_light.Color(rot, gruen, blau));
       main_light.show();
     }
   } 
