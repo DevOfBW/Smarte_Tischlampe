@@ -35,6 +35,8 @@ volatile uint8_t flankenzaehler_ein_aus=0;
 uint8_t activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
 uint8_t red,green,blue,bright;
 //uint32_t memory;
+char hmi_input [4]={};    //Es werden 4 char benötigt, da wir 4 Datensätze pro Button übertragen, um diesen zu identifizieren
+
 
 
 // Funktionen:
@@ -322,60 +324,37 @@ void loop()
   //Gestensensor();
   //RGB_Licht_Funktion(0, 0, 0, 0, 0, 6);
 
-/*
-  Serial.print("va0.val=42");   //Sending Code to the Display; this case: value of va0 is 42
-  Serial.write(0xff);           //After every command three times this line
-  Serial.write(0xff);
-  Serial.write(0xff);
-
-  Serial.print("vis t3,0");   //Hiding object t3
-  Serial.write(0xff);
-  Serial.write(0xff);
-  Serial.write(0xff);
-*/
-
-
+//Uhrzeit aktualisieren
  if (flanke_rtc_sqw == false) //Test if EDGE has been made equal to zero by the Interrrupt Service Routine(ISR).  If it has, then update the time displayed on the clock
   {
     displayTime ();
     flanke_rtc_sqw = true; // The time will not be updated again until another falling clock edge is detected on the SQWinput pin of the Arduino.
   }
 
+ //HMI input bitstream lesen
+  if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
+  {
+    for(int i=0;i<3;i++) //Eingehende Nummer von Inputs einlesen (xx yy zz dd aa uu ii) yy=Seite, zz=Button 1,2,3
+    {
+      hmi_input[i]=hmi_input[i+1];
+      Serial.println(hmi_input[i]);
+    }
+    hmi_input[3]=Serial.read();
+  }
 
-String hmi_input=Serial.readString();
-  Serial.println(hmi_input);
+//Äußere switch seite
+//switch in Case von äußerem switch button
 
-static uint8_t wochentage_memory=0;
- if(hmi_input.endsWith("b_wtag_m_uhr")){
-    wochentage_memory--;
-    if(wochentage_memory<0){
-      wochentage_memory=6;
-    }
-   Serielle_Textausgabe("t_wtag1_uhr.txt=",wochentage[wochentage_memory]);
- }
- if(hmi_input.endsWith("b_wtag_p_uhr")){
-   wochentage_memory++;
-    if(wochentage_memory>6){
-      wochentage_memory=0;
-    }
-   Serielle_Textausgabe("t_wtag1_uhr.txt=",wochentage[wochentage_memory]);
- }
 
- static uint8_t tag_memory=0;
- if(hmi_input.endsWith("b_tag_m_uhr")){
-    tag_memory--;
-    if(tag_memory<1){
-      tag_memory=31;
-    }
-   Serielle_Textausgabe("t_tag1_uhr.txt=",String(tag_memory));
- }
- if(hmi_input.endsWith("b_tag_p_uhr")){
-   tag_memory++;
-    if(tag_memory>31){
-      tag_memory=1;
-    }
-   Serielle_Textausgabe("t_tag1_uhr.txt=",String(tag_memory));
- }
+
+
+
+
+  //HMI input bitstream reseten (löschen)
+  for(int i=0; i<3;i++) //Inputdatenarray löschen
+  {
+    hmi_input[i]=0;
+  }
 
 }
 
