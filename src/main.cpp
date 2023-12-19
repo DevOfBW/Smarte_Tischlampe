@@ -400,7 +400,7 @@ void displayTime () {
   dtostrf(rtc.getTemperature(), 6, 2, temperatur);
   strcpy(w_tag, wochentage[now.dayOfTheWeek()]);
 
-  // Verkettung der Char-Arrays
+  // Verkettung der Char-Arrays um Datum und die komplette Uhrzeit darzustellen
   sprintf(datum, "%s.%s.%s", tag, monat, jahr);
   sprintf(stunde, "%s:%s:%s", stunde, minute, sekunde);
 
