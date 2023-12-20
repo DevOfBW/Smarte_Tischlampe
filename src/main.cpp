@@ -1,4 +1,5 @@
-//TODO: 19.12.2023 RAM: 39,6%  Flash: 42,1%
+// 19.12.2023 RAM: 39,6%  Flash: 42,1%
+// 20.12.2023 RAM: 33,3%  Flash: 40,7%
 
 #include <Arduino.h>
 //#include "avr8-stub.h"
@@ -337,13 +338,34 @@ void loop()
     for(int i=0;i<3;i++) //Eingehende Nummer von Inputs einlesen (xx yy zz dd aa uu ii) yy=Seite, zz=Button 1,2,3
     {
       hmi_input[i]=hmi_input[i+1];
-      Serial.println(hmi_input[i]);
+      //Serial.println(hmi_input[i]);
     }
     hmi_input[3]=Serial.read();
   }
 
+Serial.println();
+Serial.println(hmi_input[0]);
+Serial.println(hmi_input[1]);
+Serial.println(hmi_input[2]);
+Serial.println(hmi_input[3]);
+Serial.println();
+delay(1000);
 //Äußere switch seite
 //switch in Case von äußerem switch button
+switch (hmi_input[0])
+{
+  case 'u':
+      Serielle_Textausgabe("m05.txt=", "geht u");
+  break;
+  case 'm':
+      Serielle_Textausgabe("m05.txt=", "geht m");
+  break;
+
+  
+
+default:
+  break;
+}
 
 
 
@@ -367,7 +389,7 @@ void ISR_RTC () {
 void displayTime () {
   DateTime now = rtc.now();
 
-  char tag[3], monat[3], jahr[5], stunde[3], minute[3], sekunde[3], temperatur[5], w_tag[3],datum[13];
+  char tag[6], monat[4], jahr[6], stunde[4], minute[4], sekunde[4], temperatur[6], w_tag[4];
 
   // Umwandlung der Zahlen in Char-Arrays
   sprintf(jahr, "%04d", now.year());
@@ -376,17 +398,17 @@ void displayTime () {
   sprintf(stunde, "%02d", now.hour());
   sprintf(minute, "%02d", now.minute());
   sprintf(sekunde, "%02d", now.second());
-  dtostrf(rtc.getTemperature(), 6, 2, temperatur);
   strcpy(w_tag, wochentage[now.dayOfTheWeek()]);
+  dtostrf(rtc.getTemperature(), 6, 2, temperatur);
 
   // Verkettung der Char-Arrays um Datum und die komplette Uhrzeit darzustellen
-  sprintf(datum, "%s.%s.%s", tag, monat, jahr);
+  sprintf(tag, "%s.%s.%s", tag, monat, jahr);
   sprintf(stunde, "%s:%s:%s", stunde, minute, sekunde);
 
-  Serielle_Textausgabe("t_day_main.txt=", w_tag);
-  Serielle_Textausgabe("t_date_main.txt=", datum);
-  Serielle_Textausgabe("t_time_main.txt=", stunde);
-  Serielle_Textausgabe("t_alarm_main.txt=", temperatur);
+  Serielle_Textausgabe("m01.txt=", w_tag);
+  Serielle_Textausgabe("m02.txt=", tag);
+  Serielle_Textausgabe("m03.txt=", stunde);
+  Serielle_Textausgabe("m04.txt=", temperatur);
 }
 
 void setModusActive(){
