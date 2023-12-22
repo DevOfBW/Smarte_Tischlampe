@@ -36,7 +36,7 @@ volatile uint8_t flankenzaehler_ein_aus=0;
 uint8_t activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
 uint8_t red,green,blue,bright;
 //uint32_t memory;
-char hmi_input [4]={};    //Es werden 4 char benötigt, da wir 4 Datensätze pro Button übertragen, um diesen zu identifizieren
+char hmi_input [7]={};    //Es werden 4 char benötigt, da wir 4 Datensätze pro Button übertragen, um diesen zu identifizieren
 
 
 
@@ -45,9 +45,10 @@ uint8_t RGB_Licht_Funktion(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t,
 uint8_t Signalgeber(uint8_t, uint8_t); //(An, Modus)
 uint8_t Gestensensor(); //Gestensensor
 int LDR_Messung(); //LDR Messung zwischen 0 und 1023
-void Serielle_Textausgabe(String, String); //Textausgabe zum HMI
+void Serielle_Textausgabe(const char*, const char*); //Textausgabe zum HMI
 void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
 void displayTime (); //Ausgabe der aktuellen Zeit
+void HMI_Input_loeschen(char*);
 
 // Objekte:
 Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
@@ -333,51 +334,190 @@ void loop()
   }
 
  //HMI input bitstream lesen
-  if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
+   if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
   {
-    for(int i=0;i<3;i++) //Eingehende Nummer von Inputs einlesen (xx yy zz dd aa uu ii) yy=Seite, zz=Button 1,2,3
+    for(int i=0;i<6;i++) //Eingehende Nummer von Inputs einlesen (xx yy zz dd aa uu ii) yy=Seite, zz=Button 1,2,3
     {
       hmi_input[i]=hmi_input[i+1];
-      //Serial.println(hmi_input[i]);
     }
-    hmi_input[3]=Serial.read();
+    hmi_input[6]=Serial.read();
   }
 
-Serial.println();
-Serial.println(hmi_input[0]);
-Serial.println(hmi_input[1]);
-Serial.println(hmi_input[2]);
-Serial.println(hmi_input[3]);
-Serial.println();
-delay(1000);
+
 //Äußere switch seite
 //switch in Case von äußerem switch button
-switch (hmi_input[0])
+//hmi_input[1]=> Seite 2, hmi_input[2] => Button
+switch (hmi_input[1])
 {
-  case 'u':
-      Serielle_Textausgabe("m05.txt=", "geht u");
-  break;
-  case 'm':
-      Serielle_Textausgabe("m05.txt=", "geht m");
+  case 0: //Mainpage
+        Serielle_Textausgabe("m05.txt=", "geht 00");
+        HMI_Input_loeschen(hmi_input);
   break;
 
-  
+  case 1: //Licht-Konfig-page
+      Serielle_Textausgabe("m05.txt=", "geht 01");
+      HMI_Input_loeschen(hmi_input);
+  break;
+
+  case 2: //Wecker-page
+        Serielle_Textausgabe("m05.txt=", "geht 02");
+        HMI_Input_loeschen(hmi_input); 
+  break;
+
+  case 3: //Settings-page
+      Serielle_Textausgabe("m05.txt=", "geht 03");
+      HMI_Input_loeschen(hmi_input);
+  break;
+
+  case 4: //Craft-page
+      Serielle_Textausgabe("m05.txt=", "geht 04");
+      HMI_Input_loeschen(hmi_input);
+  break;
+
+  case 5: //Gestensteuerung-page
+      Serielle_Textausgabe("m05.txt=", "geht 05");
+      HMI_Input_loeschen(hmi_input);
+  break;
+
+  case 6: //Uhr-Konfig-page
+      static int8_t wochentage_memory=0;
+      static int8_t tag_memory=0;
+      char tag[3];
+      switch (hmi_input[2])
+      {
+      case 0x0C: //Wochentag verringern(Mo, So, Sa,...)
+        wochentage_memory--;
+        if(wochentage_memory<0){
+        wochentage_memory=6;
+        }
+        Serielle_Textausgabe("u02.txt=",wochentage[wochentage_memory]);
+        break;
+      case 0x0D: //Wochentag erhöhen (Mo, Di, Mi,...)
+        wochentage_memory++;
+        if(wochentage_memory>6){
+        wochentage_memory=0;
+        }
+        Serielle_Textausgabe("u02.txt=",wochentage[wochentage_memory]);
+        break;
+
+      case 0x10: //Tag verringern(1, 31, 30,...)
+        tag_memory--;
+        if(tag_memory<1){
+        tag_memory=31;
+        }
+        sprintf(tag, "%02d", tag_memory);
+        Serielle_Textausgabe("u05.txt=",tag);
+        break;
+      case 0x0E: //Tag erhöhen (1, 2, 3,...)
+        tag_memory++;
+        if(tag_memory>31){
+        tag_memory=1;
+        }
+        sprintf(tag, "%02d", tag_memory);
+        Serielle_Textausgabe("u05.txt=",tag);
+        break;
+
+      case 0x13: //Monat verringern(1, 12, 1,...)
+        tag_memory--;
+        if(tag_memory<1){
+        tag_memory=31;
+        }
+        sprintf(tag, "%02d", tag_memory);
+        Serielle_Textausgabe("u05.txt=",tag);
+        break;
+      case 0x11: //Monat erhöhen (1, 2, 3,...)
+        tag_memory++;
+        if(tag_memory>31){
+        tag_memory=1;
+        }
+        sprintf(tag, "%02d", tag_memory);
+        Serielle_Textausgabe("u05.txt=",tag);
+        break;
+
+      case 0x16: //Jahr verringern
+        tag_memory--;
+        if(tag_memory<1){
+        tag_memory=31;
+        }
+        sprintf(tag, "%02d", tag_memory);
+        Serielle_Textausgabe("u05.txt=",tag);
+        break;
+      case 0x14: //Jahr erhöhen 
+        tag_memory++;
+        if(tag_memory>31){
+        tag_memory=1;
+        }
+        sprintf(tag, "%02d", tag_memory);
+        Serielle_Textausgabe("u05.txt=",tag);
+        break;
+
+      case 0x19: //Stunde verringern(1, 0, 23,...)
+        tag_memory--;
+        if(tag_memory<1){
+        tag_memory=31;
+        }
+        sprintf(tag, "%02d", tag_memory);
+        Serielle_Textausgabe("u05.txt=",tag);
+        break;
+      case 0x17: //Stunde erhöhen (1, 2, 3,...)
+        tag_memory++;
+        if(tag_memory>31){
+        tag_memory=1;
+        }
+        sprintf(tag, "%02d", tag_memory);
+        Serielle_Textausgabe("u05.txt=",tag);
+        break; 
+
+      case 0xC1: //Minute verringern(1, 60, 59,...)
+        tag_memory--;
+        if(tag_memory<1){
+        tag_memory=31;
+        }
+        sprintf(tag, "%02d", tag_memory);
+        Serielle_Textausgabe("u05.txt=",tag);
+        break;
+      case 0x1A: //Minute erhöhen (1, 2, 3,...)
+        tag_memory++;
+        if(tag_memory>31){
+        tag_memory=1;
+        }
+        sprintf(tag, "%02d", tag_memory);
+        Serielle_Textausgabe("u05.txt=",tag);
+        break;
+
+      case 0x04: //Speichern
+        tag_memory--;
+        if(tag_memory<1){
+        tag_memory=31;
+        }
+        sprintf(tag, "%02d", tag_memory);
+        Serielle_Textausgabe("u05.txt=",tag);
+        break;
+
+
+      default:
+        break;
+      }
+      HMI_Input_loeschen(hmi_input);
+      break;
+
+  case 7: //Farbmix-page
+      Serielle_Textausgabe("m05.txt=", "geht 07");
+      HMI_Input_loeschen(hmi_input);
+  break;
 
 default:
   break;
 }
+  
+}
 
-
-
-
-
-
-  //HMI input bitstream reseten (löschen)
-  for(int i=0; i<3;i++) //Inputdatenarray löschen
-  {
-    hmi_input[i]=0;
-  }
-
+void HMI_Input_loeschen(char* HMI_Input_array)
+{
+  for(int i=0; i<7;i++) //Inputdatenarray löschen
+      {
+        HMI_Input_array[i]="";
+      }
 }
 
 
@@ -555,12 +695,14 @@ int LDR_Messung()
 */
 }
 
-void Serielle_Textausgabe(String textbox, String text)
+void Serielle_Textausgabe(const char* textbox, const char* text)
 {
-  String cmd;
-  cmd +="\"";
+  const char* cmd="\"";
   for(int i=0;i<=2;i++){
-      Serial.print(textbox + cmd + text + cmd);
+      Serial.print(textbox);
+      Serial.print(cmd);
+      Serial.print(text);
+      Serial.print(cmd);
       Serial.write(0xFF);
       Serial.write(0xFF);
       Serial.write(0xFF);
