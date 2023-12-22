@@ -383,6 +383,8 @@ switch (hmi_input[1])
       static int8_t wochentage_memory=0;
       static int8_t tag_memory=0;
       char tag[3];
+      static int8_t monat_memory=0;
+      char monat[3];
       switch (hmi_input[2])
       {
       case 0x0C: //Wochentag verringern(Mo, So, Sa,...)
@@ -418,20 +420,20 @@ switch (hmi_input[1])
         break;
 
       case 0x13: //Monat verringern(1, 12, 1,...)
-        tag_memory--;
-        if(tag_memory<1){
-        tag_memory=31;
+        monat_memory--;
+        if(monat_memory<1){
+        monat_memory=12;
         }
-        sprintf(tag, "%02d", tag_memory);
-        Serielle_Textausgabe("u05.txt=",tag);
+        sprintf(monat, "%02d", monat_memory);
+        Serielle_Textausgabe("u08.txt=",tag);
         break;
       case 0x11: //Monat erhöhen (1, 2, 3,...)
-        tag_memory++;
-        if(tag_memory>31){
-        tag_memory=1;
+        monat_memory++;
+        if(monat_memory>12){
+        monat_memory=1;
         }
-        sprintf(tag, "%02d", tag_memory);
-        Serielle_Textausgabe("u05.txt=",tag);
+        sprintf(monat, "%02d", monat_memory);
+        Serielle_Textausgabe("u08.txt=",monat);
         break;
 
       case 0x16: //Jahr verringern
