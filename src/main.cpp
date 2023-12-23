@@ -1,5 +1,6 @@
 // 19.12.2023 RAM: 39,6%  Flash: 42,1%
 // 20.12.2023 RAM: 33,3%  Flash: 40,7%
+// 23.12.2023 RAM: 36,8%  Flash: 39,3% (Uhrzeit implementiert)
 
 #include <Arduino.h>
 //#include "avr8-stub.h"
@@ -101,32 +102,6 @@ void setup()
   Serial.println("PAJ7620 init: OK");
   Serial.println("Please input your gestures:"); */
 
-  //Display Events zu Artefakten hinzufuegen
-/* h_red_ls.attachPop(h_red_lsPopCallback);
-  h_green_ls.attachPop(h_green_lsPopCallback);
-  h_blue_ls.attachPop(h_blue_lsPopCallback);
-  h_hell_ls.attachPop(h_hell_lsPopCallback);
-  bt_save_ls.attachPop(bt_save_lsPopCallback);
-  b_switch_ls.attachPop(b_switch_lsPopCallback);
-  bt_lernen_lk.attachPop(bt_lernen_lkPopCallback);
-  bt_relax_lk.attachPop(bt_relax_lkPopCallback);
-  bt_auto_lk.attachPop(bt_auto_lkPopCallback);
-  bt_party_lk.attachPop(bt_party_lkPopCallback);
-  bt_mix_lk.attachPop(bt_mix_lkPopCallback);
-  r_hauptle_lk.attachPop(r_hauptle_lkPopCallback);
-  r_indirektb_lk.attachPop(r_indirektb_lkPopCallback);
-*/ 
-  //HMI
- /*String cmd; 
-  cmd+= "\"";
-  for(int i=0 ; i<=2 ; i++) //Mithilfe dieser Schleife wird die Textbox 1 zurückgesetzt, muss immer 2 mal gemacht werden damit es zuverlässig funktioniert
-  {
-    Serial.println("vis b0,0"); //Hiding Button to next page TODO: Make page 1 available
-    Serial.write(0xFF);
-    Serial.write(0xFF);
-    Serial.write(0xFF);
-  } */ 
-
   //RTC
   if (! rtc.begin()) {
     //TODO: Ausgabe der Fehlermeldung auf Touchdisplay
@@ -197,6 +172,74 @@ switch (hmi_input[1])
   break;
 
   case 2: //Wecker-page
+      static int8_t alarm1_stunde_memory;
+      char alarm1_stunde[4];
+      static int8_t alarm1_minute_memory;
+      char alarm1_minute[4];
+        switch (hmi_input[2])
+        {
+          case 0x14: //Alarm 1Stunde verringern(1, 0, 23,...)
+            alarm1_stunde_memory--;
+            if(alarm1_stunde_memory<0){
+            alarm1_stunde_memory=23;
+            }
+            sprintf(alarm1_stunde, "%02d", alarm1_stunde_memory);
+            Serielle_Textausgabe("a10.txt=",alarm1_stunde);
+            break;
+          case 0x12: //Alarm 1 Stunde erhöhen (1, 2, 3,...)
+            alarm1_stunde_memory++;
+            if(alarm1_stunde_memory>23){
+            alarm1_stunde_memory=0;
+            }
+            sprintf(alarm1_stunde, "%02d", alarm1_stunde_memory);
+            Serielle_Textausgabe("a10.txt=",alarm1_stunde);
+            break; 
+
+          case 0x17: //Alarm 1 Minute verringern(1, 59, 58,...)
+            alarm1_minute_memory--;
+            if(alarm1_minute_memory<1){
+            alarm1_minute_memory=59;
+            }
+            sprintf(alarm1_minute, "%02d", alarm1_minute_memory);
+            Serielle_Textausgabe("a12.txt=",alarm1_minute);
+            break;
+          case 0x15: //Alarm 1 Minute erhöhen (1, 2, 3,...)
+            alarm1_minute_memory++;
+            if(alarm1_minute_memory>59){
+            alarm1_minute_memory=0;
+            }
+            sprintf(alarm1_minute, "%02d", alarm1_minute_memory);
+            Serielle_Textausgabe("a12.txt=",alarm1_minute);
+            break;
+
+          case 0x04: //Montag (Alarm1)
+
+            break;
+          case 0x05: //Dienstag (Alarm1)
+          
+            break;
+          case 0x07: //Mittwoch (Alarm1)
+          
+            break;
+          case 0x06: //Donnerstag (Alarm1)
+          
+            break;
+          case 0x09: //Freitag (Alarm1)
+          
+            break;
+          case 0x08:  //Samstag (Alarm1)
+          
+            break;
+          case 0x0A: //Sonntag (Alarm1)
+          
+            break;
+
+
+
+
+            default:
+              break;
+        }
         HMI_Input_loeschen(hmi_input); 
   break;
 
