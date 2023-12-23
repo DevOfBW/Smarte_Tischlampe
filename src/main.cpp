@@ -71,165 +71,6 @@ RTC_DS3231 rtc;
 char wochentage[7][3] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"};  
 
-//Displayelemente
-/*NexSlider h_red_ls = NexSlider(7, 1, "h_red_ls"); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
-NexSlider h_green_ls = NexSlider(7, 4, "h_green_ls"); //Slider gruen
-NexSlider h_blue_ls = NexSlider(7, 6, "h_blue_ls"); //Slider blau
-NexSlider h_hell_ls = NexSlider(7, 8, "h3");  //Slider helligkeit
-NexDSButton bt_save_ls = NexDSButton(7, 2, "bt_save_ls"); //Button Licht an/aus
-NexButton b_switch_ls = NexButton(7,15,"b_switch_ls");  //Button um die Lampen umzuschalten
-NexDSButton bt_lernen_lk = NexDSButton(1,13,"bt_lernen_lk");
-NexDSButton bt_relax_lk = NexDSButton(1,15,"bt_relax_lk");
-NexDSButton bt_auto_lk = NexDSButton(1,14,"bt_auto_lk");
-NexDSButton bt_party_lk = NexDSButton(1,16,"bt_party_lk");
-NexDSButton bt_mix_lk = NexDSButton(1,3,"bt_mix_lk");
-NexRadio r_hauptle_lk = NexRadio(1,10,"r_hauptle_lk");
-NexRadio r_indirektb_lk = NexRadio(1,11,"r_indirektb_lk");*/
-
-/*
-NexTouch *nex_listen_list[]={
-  &h_red_ls,
-  &h_green_ls,
-  &h_blue_ls,
-  &h_hell_ls,
-  &bt_save_ls,
-  &b_switch_ls,
-  &bt_lernen_lk,
-  &bt_relax_lk,
-  &bt_auto_lk,
-  &bt_party_lk,
-  &bt_mix_lk,
-  &r_hauptle_lk,
-  &r_indirektb_lk
-};  
-
-*/
-/*
-#pragma region DisplayFunctions
-//TODO: Wird die folgende Funktion gebraucht, weil wir schon so eine Funktion haben??
-bool sendCmdToDisplay(String command){
-  Serial.print(command);
-  Serial.write(0xFF);
-  Serial.write(0xFF);
-  Serial.write(0xFF);
-}
-
-void setColorsActive(){
-  if (activeLamp==2)
-  {
-    main_light.fill(main_light.Color(red, green, blue));
-    main_light.setBrightness(bright);
-    main_light.show();
-  }else{
-    strip_IndLi.fill(strip_IndLi.Color(red, green, blue));
-    strip_IndLi.setBrightness(bright);
-    strip_IndLi.show();
-    strip_IndRe.fill(strip_IndRe.Color(red, green, blue));
-    strip_IndRe.setBrightness(bright);
-    strip_IndRe.show();
-  }
-}
-
-/*
-void h0PushCallback(void *ptr)      fuer Touch Press Event
-
-void h_red_lsPopCallback(void *ptr){
-  h_red_ls.getValue(&memory);
-  red=memory;
-  setColorsActive();
-}
-
-void h_green_lsPopCallback(void *ptr){
-  h_green_ls.getValue(&memory);
-  green=memory;
-  setColorsActive();
-}
-
-void h_blue_lsPopCallback(void *ptr){
-  h_blue_ls.getValue(&memory);
-  blue=memory;
-  setColorsActive();
-}
-
-void h_hell_lsPopCallback(void *ptr){
-  h_hell_ls.getValue(&memory);
-  bright=memory;
-  setColorsActive();
-}
-
-// TODO - Die Farbwerte für den aktuellen Modus speichern
-void bt_save_lsPopCallback(void *ptr){
-  uint32_t state=0;
-  bt_save_ls.getValue(&state);
-
-  if(state == 1){
-    strip_IndLi.fill(strip_IndLi.Color(red, green, blue));
-    strip_IndLi.setBrightness(bright);
-    strip_IndLi.show();
-  }else{
-    strip_IndLi.setBrightness(0);
-    strip_IndLi.show();
-  }
-
-}
-
-void b_switch_lsPopCallback(void *ptr){
-  String text;
-  switch(activeLamp){
-    case 0: activeLamp=1;
-       text="Haupt-\rleuchte";
-       break;
-    case 1: activeLamp=2;
-       text="Neben-\rleuchte";
-       break;
-    case 2: activeLamp=3;
-       text="Beide\rLeuchten";
-       break;
-    default: activeLamp=0;
-       text="Beide\raus";
-       break;
-  }
-  Serielle_Textausgabe("b_switch_ls.txt=",text);
-  setColorsActive();
-}
-
-void bt_lernen_lkPopCallback(void *ptr){
-  modus=1; //Arbeitslicht (Lernen)
-  Serielle_Textausgabe("t_actmod_lk.txt=","Lernen"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-}
-
-void bt_relax_lkPopCallback(void *ptr){
-  modus=2; //Entspannungslicht (Relax)
-  Serielle_Textausgabe("t_actmod_lk.txt=","Relax"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-}
-
-void bt_party_lkPopCallback(void *ptr){
-  modus=4; //Party
-  Serielle_Textausgabe("t_actmod_lk.txt=","Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-}
-
-void bt_auto_lkPopCallback(void *ptr){
-  modus=6; //Lichtabhängige Lichtansteuerung (Automatik)
-  Serielle_Textausgabe("t_actmod_lk.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-}
-
-void bt_mix_lkPopCallback(void *ptr){
-  modus=3; //Farben mix
-  Serielle_Textausgabe("t_actmod_lk.txt=","Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-}
-
-void r_hauptle_lkPopCallback(void *ptr){
-  r_hauptle_lk.getValue(&memory);
-  hauptleuchte_an=memory?true:false;
-}
-
-void r_indirektb_lkPopCallback(void *ptr){
-  r_indirektb_lk.getValue(&memory);
-  indirektebeleuchtung_an=memory?true:false;
-}
-#pragma endregion  */
-
-
 // Setupmethode, diese Methode beeinhaltet alle Grundeinstellungen z.B. ob ein Kanal ein Eingang oder Ausgang ist. 
 // Diese Mehtode wird einmalig zum Programmstart ausgeführt.
 void setup() 
@@ -297,20 +138,18 @@ void setup()
    rtc.disable32K();
 
   if (rtc.lostPower()) {
-    //TODO: Implementieren über Touchdisplay
-    Serial.println("RTC lost power, let's set the time!");
-    // When time needs to be set on a new device, or after a power loss, the
-    // following line sets the RTC to the date & time this sketch was compiled
-    //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-    // This line sets the RTC with an explicit date & time, for example to set
-    // January 21, 2014 at 3am you would call:
-    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0)); (Jahr, Monat, Tag, Stunde, Minute, Sekunde)
+    //TODO: Implementieren auf Touchdisplay evtl. sichtbar
+     Serial.println("RTC lost power, let's set the time!");
   }
   rtc.writeSqwPinMode(DS3231_SquareWave1Hz);   //Configure SQW pin on the DS3231 to output a 1Hz squarewave to Arduino pin 2 (SQWinput) for timing
   pinMode(PIN_SQW, INPUT); //Configure the SQWinput pin as an INPUT to monitor the SQW pin of the DS3231.
   digitalWrite (PIN_SQW, HIGH); //Enable the internal pull-up resistor, since the SQW pin on the DS3231 is an Open Drain output.
   attachInterrupt(digitalPinToInterrupt(PIN_SQW), ISR_RTC, FALLING); //Configure SQWinput (pin 2 of the Arduino) for use by the Interrupt Service Routine (Isr)
   flanke_rtc_sqw = true; //Initialize EDGE equal to 1. The Interrupt Service Routine will make EDGE equal to zero when triggered by a falling clock edge on SQW
+
+  //Alarm
+  rtc.clearAlarm(1);
+  rtc.clearAlarm(2);
 }
 
 
@@ -374,15 +213,11 @@ switch (hmi_input[1])
       HMI_Input_loeschen(hmi_input);
   break;
 
-  case 4: //Craft-page
+  case 4: //Gestensteuerung-page
       HMI_Input_loeschen(hmi_input);
   break;
 
-  case 5: //Gestensteuerung-page
-      HMI_Input_loeschen(hmi_input);
-  break;
-
-  case 6: //Uhr-Konfig-page
+  case 5: //Uhr-Konfig-page
       DateTime now = rtc.now();
       static int8_t tag_memory=now.day();
       char tag[3];
@@ -492,7 +327,7 @@ switch (hmi_input[1])
       HMI_Input_loeschen(hmi_input);
       break;
 
-  case 7: //Farbmix-page
+  case 6: //Farbmix-page
       HMI_Input_loeschen(hmi_input);
   break;
 
@@ -518,7 +353,7 @@ void ISR_RTC () {
 
 void displayTime (bool uhr_einstellen) {
   DateTime now = rtc.now();
-  char tag[6], monat[4], jahr[6], stunde[4], minute[4], sekunde[4], temperatur[6], w_tag[4];
+  char tag[6], monat[4], jahr[6], stunde[4], minute[4], sekunde[4], temperatur[8], w_tag[4];
 
   // Umwandlung der Zahlen in Char-Arrays
   sprintf(jahr, "%04d", now.year());
@@ -545,6 +380,7 @@ void displayTime (bool uhr_einstellen) {
   Serielle_Textausgabe("m02.txt=", tag);
   Serielle_Textausgabe("m03.txt=", stunde);
   dtostrf(rtc.getTemperature(), 6, 2, temperatur);
+  sprintf(temperatur, "%s Grad C", temperatur);
   Serielle_Textausgabe("m04.txt=", temperatur);
 
   
@@ -708,13 +544,6 @@ void Serielle_Textausgabe(const char* textbox, const char* text)
   }
 }
 
-/*
-int LDR_Messung()
-{
-  helligkeit = analogRead(0);  
-  return helligkeit;
-}
-*/
 
 uint8_t Gestensensor()
 {
