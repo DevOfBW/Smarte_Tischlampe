@@ -86,8 +86,7 @@ void partymodus();
 void refreshColours();
 void activateIndBel(int, int, int, int);
 void activateHauptBel(int, int, int, int);
-void cmdForDisplay(String); //Textausgabe zum HMI, nur einmal für bool Werte?
-void sendValue(String, int);
+void sendValue(const char*, const char*);
 
 // Objekte:
 Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
@@ -253,7 +252,7 @@ void bt_mix_lkPopCallback(){
 //Konfigurationsbutton
 void b_mixco_lkPopCallback(){
   setModusActive(3);
-  cmdForDisplay("l03.val=1");
+  sendValue("l03","1");
 }
 
 void r_hauptle_lkPopCallback(){
@@ -894,20 +893,20 @@ boolean setModusActive(int newMod){
   //alten Modus abschalten
   switch(modus){
     case 1:
-      cmdForDisplay("l01.val=0");
+      sendValue("l01.val=","0");
       //Serielle_Textausgabe("bt_lernen_lk.val=","0"); 
       break;
     case 2:
-      cmdForDisplay("l02.val=0");
+      sendValue("l02.val=","0");
       break;
     case 3:
-      cmdForDisplay("l03.val=0");
+      sendValue("l03.val=","0");
       break;
     case 4:
-      cmdForDisplay("l05.val=0");
+      sendValue("l05.val=","0");
       break;
     case 6:
-      cmdForDisplay("l04.val=0");
+      sendValue("l04.val=","0");
       break;
   }
 
@@ -990,14 +989,6 @@ void partymodus(){
   delay(50);
 }
 
-void cmdForDisplay(String cmd)
-{
-  Serial.print(cmd);
-  Serial.write(0xFF);
-  Serial.write(0xFF);
-  Serial.write(0xFF);
-}
-
 int LDR_Messung()
 {
   helligkeit = analogRead(0);
@@ -1018,10 +1009,11 @@ void Serielle_Textausgabe(const char* textbox, const char* text)
   }
 }
 
-void sendValue(String object, int value){
+void sendValue(const char* object, const char* value){
   const char* cmd="\"";
   for(int i=0;i<=2;i++){
-      Serial.print(object+".val=");
+      Serial.print(object);
+      Serial.print(".val=");
       Serial.print(cmd);
       Serial.print(value);
       Serial.print(cmd);
