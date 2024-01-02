@@ -1,9 +1,10 @@
 // 19.12.2023 RAM: 39,6%  Flash: 42,1%
 // 20.12.2023 RAM: 33,3%  Flash: 40,7%
 // 23.12.2023 RAM: 36,8%  Flash: 39,3% (Uhrzeit implementiert)
+// 31.12.2023 RAM: 44,6%  Flash: 48,5%
 
 #include <Arduino.h>
-#include "Adafruit_NeoPixel.h"  //Indirekte Beleuchtung
+#include "Adafruit_NeoPixel.h"  //Beleuchtung
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
 #include "RevEng_PAJ7620.h"  //Gestensensor
 #include "RTClib.h"  //Realtime-Clock
@@ -21,7 +22,7 @@
 #define PIN_summer 4 //Pin an dem der Summer angeschlossen ist
 #define PIN_SQW 2
 //const byte PIN_SQW = 2; //Interruptpin RTC -> SQW pin is used to monitor the SQW 1Hz output from the DS3231
-bool flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
+//bool flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
 uint8_t helligkeit; //Wird benötigt für die LDR-Messung
 bool flanke_Licht_ein = false;
 uint8_t modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
@@ -32,7 +33,6 @@ int durchlaufzaehler_party_farbwechsel=0;
 volatile uint8_t flankenzaehler_ein_aus=0;
 uint8_t activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
 uint8_t red,green,blue,bright;
-//uint32_t memory;
 char hmi_input [7]={};    //Es werden 4 char benötigt, da wir 4 Datensätze pro Button übertragen, um diesen zu identifizieren
 bool montag_alarm1_memory=true;
 bool montag_alarm2_memory=true;
@@ -62,21 +62,12 @@ void Signalgeber(bool); //(An/Aus)
 uint8_t Gestensensor(); //Gestensensor
 int LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(const char*, const char*); //Textausgabe zum HMI
-void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
-void displayTime (bool); //Ausgabe der aktuellen Zeit
+void displayTime (bool, DateTime); //Ausgabe der aktuellen Zeit
 void HMI_Input_loeschen(char*);
 
 // Objekte:
 Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
 Adafruit_NeoPixel strip_IndRe(LED_COUNT_IndRe, LED_PIN_IndRe, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
-// Argument 1 = Number of pixels in NeoPixel pixel
-// Argument 2 = Arduino pin number (most are valid)
-// Argument 3 = Pixel type flags, add together as needed:
-// NEO_KHZ800  800 KHz bitstream (most NeoPixel products w/WS2812 LEDs)
-// NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
-// NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
-// NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
-// NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
 Adafruit_NeoPixel main_light(25,main_light_pin, NEO_GRB + NEO_KHZ800);
 
 //Gestensensorobjekt
@@ -88,12 +79,10 @@ char wochentage[7][3] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"}; 
 
 
-// Setupmethode, diese Methode beeinhaltet alle Grundeinstellungen z.B. ob ein Kanal ein Eingang oder Ausgang ist. 
 // Diese Mehtode wird einmalig zum Programmstart ausgeführt.
 void setup() 
 {
 
-  //debug_init(); //AUFRUF IST NOTWENDIG UM DEBUGGER ZU STARTEN
   Serial.begin(9600); //Iinitialisierung von Serieller Verbindung um Ergebnisse anzuzeigen auf Konsole
 
   //Neopixel
@@ -107,36 +96,24 @@ void setup()
   //Signalgeber (Summer)
   pinMode(PIN_summer, OUTPUT); 
 
+
   //Gestensensor
-  /*Serial.println("PAJ7620 sensor demo: Recognizing all 9 gestures.");
-
- if( !sensor.begin() )           // return value of 0 == success
+ if( !sensor.begin() )   
   {
-    Serial.print("PAJ7620 I2C error - halting");
+    Serial.print("Gestensensor error");
   } 
-
-  Serial.println("PAJ7620 init: OK");
-  Serial.println("Please input your gestures:"); */
 
   //RTC
   if (! rtc.begin()) {
     //TODO: Ausgabe der Fehlermeldung auf Touchdisplay
     Serial.println("RTC nicht gefunden");
     Serial.flush();
-    abort();
   }
-
    rtc.disable32K();
-
   if (rtc.lostPower()) {
     //TODO: Implementieren auf Touchdisplay evtl. sichtbar
-     Serial.println("RTC lost power, let's set the time!");
+     Serial.println("RTC lost power!");
   }
-  rtc.writeSqwPinMode(DS3231_SquareWave1Hz);   //Configure SQW pin on the DS3231 to output a 1Hz squarewave to Arduino pin 2 (SQWinput) for timing
-  pinMode(PIN_SQW, INPUT); //Configure the SQWinput pin as an INPUT to monitor the SQW pin of the DS3231.
-  digitalWrite (PIN_SQW, HIGH); //Enable the internal pull-up resistor, since the SQW pin on the DS3231 is an Open Drain output.
-  attachInterrupt(digitalPinToInterrupt(PIN_SQW), ISR_RTC, FALLING); //Configure SQWinput (pin 2 of the Arduino) for use by the Interrupt Service Routine (Isr)
-  flanke_rtc_sqw = true; //Initialize EDGE equal to 1. The Interrupt Service Routine will make EDGE equal to zero when triggered by a falling clock edge on SQW
 
   //Alarm (Wecker)
   rtc.disableAlarm(1);
@@ -419,7 +396,7 @@ switch (hmi_input[1])
       switch (hmi_input[2])
       {
       case 0x03:
-        displayTime(true);
+        displayTime(true, now);
         break;
       
       default:
@@ -585,7 +562,7 @@ if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==tr
 //TODO: muss wieder entfertn werden wnn wieder mit dem interupt gearbeitet wird
 static uint8_t anzeige_zeit;
 if(anzeige_zeit==150){
-displayTime (false);
+displayTime (false, now);
 
 if(rtc.alarmFired(1) && alarm1_ein_memory==true)
 {
@@ -609,13 +586,13 @@ void HMI_Input_loeschen(char* HMI_Input_array)
 }
 
 //Interrupt Service Routine - This routine is performed when a falling edge on the 1Hz SQW clock from the RTC is detected
-void ISR_RTC () {
+/*void ISR_RTC () {
     flanke_rtc_sqw = false; //A falling edge was detected on the SQWinput pin.  Now set EDGE equal to 0.
-}
+}*/
 
-void displayTime (bool uhr_einstellen) {
+void displayTime (bool uhr_einstellen, DateTime now) {
   //TODO: übergabeparameter kann entfernt werden, kann immer angezeigt werden in den feldern
-  DateTime now = rtc.now();
+  //DateTime now = rtc.now();
   char tag[6], monat[4], jahr[6], stunde[4], minute[4], sekunde[4], temperatur[8], w_tag[4];
 
   // Umwandlung der Zahlen in Char-Arrays
@@ -768,9 +745,7 @@ void Signalgeber(bool ton_an)
 {
   if(ton_an==true){
     tone(4,264); // (pin, frequency, duration)
-    delay(100);
-    tone(4,547);
-    delay(100);
+    delay(200);
   }else{
     noTone(4);
   }
