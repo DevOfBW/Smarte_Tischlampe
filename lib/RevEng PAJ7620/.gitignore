@@ -1,0 +1,28 @@
+/.bundle/
+/.yardoc
+Gemfile.lock
+/_yardoc/
+/coverage/
+/doc/
+/pkg/
+/spec/reports/
+vendor
+*.gem
+
+# rspec failure tracking
+.rspec_status
+
+# C++ stuff
+*.bin
+*.bin.dSYM
+
+*.zip
+*.tar.gz
+
+*.swp
+
+# Ignore doxygen results
+doxygen/
+
+# Ignore python virtual environment
+scripts/.paj7620-env/
