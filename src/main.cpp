@@ -9,7 +9,7 @@
 #include "Adafruit_NeoPixel.h"  //Indirekte Beleuchtung
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
 #include "RevEng_PAJ7620.h"  //Gestensensor
-#include "RTClib.h"  //Realtime-Clock
+//#include "RTClib.h"  //Realtime-Clock
 
 // Variablen:
 #define LED_PIN_IndLi    6    // LED Pin für die indirekte Beleuchtung auf der linken Seite an Pin 6
@@ -73,13 +73,13 @@ int8_t alarm2_stunde_memory;
 
 
 // Funktionen:
-uint8_t RGB_Licht_Funktion(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, bool, bool); //(Pixel,R,G,B,Helligkeit,Modus,Hauptleuchte_an,Indirektebeleuchtung_an)
-void Signalgeber(bool); //(An/Aus)
-uint8_t Gestensensor(); //Gestensensor
+//uint8_t RGB_Licht_Funktion(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, bool, bool); //(Pixel,R,G,B,Helligkeit,Modus,Hauptleuchte_an,Indirektebeleuchtung_an)
+//void Signalgeber(bool); //(An/Aus)
+//uint8_t Gestensensor(); //Gestensensor
 int LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(const char*, const char*); //Textausgabe zum HMI
-void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
-void displayTime (bool); //Ausgabe der aktuellen Zeit
+//void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
+//void displayTime (bool); //Ausgabe der aktuellen Zeit
 void HMI_Input_loeschen(char*);
 boolean setModusActive(int);
 void partymodus();
@@ -266,7 +266,7 @@ void r_indirektb_lkPopCallback(){
 }
 #pragma endregion
 //Wecker + Uhrzeit
-RTC_DS3231 rtc;
+//RTC_DS3231 rtc;
 char wochentage[7][3] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"}; 
 
@@ -344,7 +344,7 @@ void loop()
   nexLoop(nex_listen_list);
   partymodus();
 
-  DateTime now = rtc.now();
+  //DateTime now = rtc.now();
 
   //HMI input bitstream lesen
    if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
@@ -370,25 +370,25 @@ switch (hmi_input[1])
 
   case 1: //Licht-Konfig-page
       switch(hmi_input[2]){
-        case 0x13:
+        case 0x0D:
           bt_lernen_lkPopCallback();
           break;
-        case 0x15:
+        case 0x0F:
           bt_relax_lkPopCallback();
           break;
-        case 0x14:
+        case 0x0E:
           bt_auto_lkPopCallback();
           break;
         case 0x03:
           bt_mix_lkPopCallback();
           break;
-        case 0x16:
+        case 0x10:
           bt_party_lkPopCallback();
           break;
-        case 0x10:
+        case 0x0A:
           r_hauptle_lkPopCallback();
           break;
-        case 0x11:
+        case 0x0B:
           r_indirektb_lkPopCallback();
           break;
       }
@@ -396,7 +396,7 @@ switch (hmi_input[1])
   break;
 
 
-
+/*
   case 2: //Wecker-page
   #pragma region Wecker
       char alarm1_stunde[4];
@@ -637,12 +637,12 @@ switch (hmi_input[1])
         HMI_Input_loeschen(hmi_input); 
   break;
   #pragma endregion
-
+*/
   case 3: //Settings-page
       switch (hmi_input[2])
       {
       case 0x03:
-        displayTime(true);
+        //displayTime(true);
         break;
       
       default:
@@ -658,7 +658,7 @@ switch (hmi_input[1])
   break;
 
 
-
+/*
   case 5: //Uhr-Konfig-page
   #pragma region UhrKonfig
       //DateTime now = rtc.now();
@@ -770,13 +770,13 @@ switch (hmi_input[1])
       HMI_Input_loeschen(hmi_input);
       break;
   #pragma endregion
-
+*/
   case 6: //Farbmix-page
       switch(hmi_input[2]){
         case 0x02:
           bt_save_lsPopCallback();
           break;
-        case 0x15:
+        case 0x0F:
           b_switch_lsPopCallback();
           break;
       }
@@ -787,6 +787,7 @@ default:
   break;
 }
 
+/*
 //Wecker (Alarm 1)
 if((now.dayOfTheWeek()==1 && montag_alarm1_memory==true && alarm1_ein_memory==true) || 
     (now.dayOfTheWeek()==2 && dienstag_alarm1_memory==true && alarm1_ein_memory==true) || 
@@ -796,7 +797,7 @@ if((now.dayOfTheWeek()==1 && montag_alarm1_memory==true && alarm1_ein_memory==tr
     (now.dayOfTheWeek()==6 && samstag_alarm1_memory==true && alarm1_ein_memory==true) ||
     (now.dayOfTheWeek()==0 && sonntag_alarm1_memory==true && alarm1_ein_memory==true))
     {
-      rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day); //Alarm when day (day of week), hours,inutes and seconds match */
+      rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day); //Alarm when day (day of week), hours,inutes and seconds match 
     }else{
       rtc.clearAlarm(1);  //Alarm ausschalten
       noTone(4);  //Signalton ausschalten
@@ -810,7 +811,7 @@ if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==tr
     (now.dayOfTheWeek()==6 && samstag_alarm2_memory==true && alarm2_ein_memory==true) ||
     (now.dayOfTheWeek()==0 && sonntag_alarm2_memory==true && alarm2_ein_memory==true))
     {
-      rtc.setAlarm2(DateTime(now.year(), now.month(), now.day(), alarm2_stunde_memory, alarm2_minute_memory, 0), DS3231_A2_Day); //Alarm when day (day of week), hours,inutes and seconds match */
+      rtc.setAlarm2(DateTime(now.year(), now.month(), now.day(), alarm2_stunde_memory, alarm2_minute_memory, 0), DS3231_A2_Day); //Alarm when day (day of week), hours,inutes and seconds match 
     }else{
       rtc.clearAlarm(2);  //Alarm ausschalten
       noTone(4);  //Signalton ausschalten
@@ -833,7 +834,7 @@ Serial.println("");
 Serial.println(alarm1_ein_memory);
 }
 anzeige_zeit++;
-
+*/
   
 }
 
@@ -845,11 +846,13 @@ void HMI_Input_loeschen(char* HMI_Input_array)
       }
 }
 
+/*
 //Interrupt Service Routine - This routine is performed when a falling edge on the 1Hz SQW clock from the RTC is detected
 void ISR_RTC () {
     flanke_rtc_sqw = false; //A falling edge was detected on the SQWinput pin.  Now set EDGE equal to 0.
 }
-
+*/
+/*
 void displayTime (bool uhr_einstellen) {
   //TODO: übergabeparameter kann entfernt werden, kann immer angezeigt werden in den feldern
   DateTime now = rtc.now();
@@ -885,7 +888,7 @@ void displayTime (bool uhr_einstellen) {
 
   
 }
-
+*/
 boolean setModusActive(int newMod){
   if(modus==newMod){
     return 0;
@@ -1023,6 +1026,7 @@ void sendValue(const char* object, const char* value){
   }
 }
 
+/*
 uint8_t Gestensensor()
 {
 Gesture gesture;                  // Gesture is an enum type from RevEng_PAJ7620.h
@@ -1230,3 +1234,4 @@ uint8_t RGB_Licht_Funktion(uint8_t pixelnummer, uint8_t rot, uint8_t gruen, uint
   return 1;
 }
 
+*/
