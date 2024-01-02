@@ -2,7 +2,7 @@
 //#include "avr8-stub.h"
 //#include "app_api.h" //only needed with flash breakpoints
 #include <Adafruit_NeoPixel.h>
-#include <Adafruit_NeoMatrix.h>
+//#include <Adafruit_NeoMatrix.h>
 #include <avr/power.h>
 
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
@@ -32,10 +32,10 @@ bool indirektebeleuchtung_an=false;
 int durchlaufzaehler_party_farbwechsel=0;
 volatile int flankenzaehler_ein_aus=0;
 int activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
-int parRed[12]={128, 192, 239, 256, 239, 192, 128, 64, 17, 0, 17, 64};
-int parBlue[13]={213, 159, 97, 43, 8, 1, 23, 69, 128, 187, 233, 255, 248};
-int parGreen[14]={2, 5, 32, 78, 134, 189, 232, 254, 251, 224, 178, 122, 67, 24};
-int parBright[11]={128, 169, 196, 202, 185, 149, 107, 71, 54, 60, 87};
+uint8_t parRed[12]={128, 192, 239, 255, 239, 192, 128, 64, 17, 0, 17, 64};
+uint8_t parBlue[13]={213, 159, 97, 43, 8, 1, 23, 69, 128, 187, 233, 255, 248};
+uint8_t parGreen[14]={2, 5, 32, 78, 134, 189, 232, 254, 251, 224, 178, 122, 67, 24};
+uint8_t parBright[11]={128, 169, 196, 202, 185, 149, 107, 71, 54, 60, 87};
 int count=0;
 
 int red,green,blue,bright;
@@ -58,6 +58,7 @@ void refreshColours();
 void activateIndBel(int, int, int, int);
 void activateHauptBel(int, int, int, int);
 void cmdForDisplay(String); //Textausgabe zum HMI, nur einmal für bool Werte?
+void sendValue(String, int);
 
 
 // Objekte:
@@ -123,28 +124,28 @@ bool sendCmdToDisplay(String command){
 void h_red_lsPopCallback(void *ptr){
   h_red_ls.getValue(&memory);
   red=memory;
-  cmdForDisplay("n_red_ls.val="+red);
+  sendValue("n_red_ls.val=",red);
   refreshColours();
 }
 
 void h_green_lsPopCallback(void *ptr){
   h_green_ls.getValue(&memory);
   green=memory;
-  cmdForDisplay("n_green_ls.val="+green);
+  sendValue("n_green_ls.val=",green);
   refreshColours();
 }
 
 void h_blue_lsPopCallback(void *ptr){
   h_blue_ls.getValue(&memory);
   blue=memory;
-  cmdForDisplay("n_blue_ls.val="+blue);
+  sendValue("n_blue_ls.val=",blue);
   refreshColours();
 }
 
 void h_hell_lsPopCallback(void *ptr){
   h_hell_ls.getValue(&memory);
   bright=memory;
-  cmdForDisplay("n_hell_ls.val="+bright);
+  sendValue("n_hell_ls.val=",bright);
   refreshColours();
 }
 
@@ -159,14 +160,15 @@ void bt_save_lsPopCallback(void *ptr){
       indRed=red;
       indBlue=blue;
       indGreen=green;
+      indBright=bright;
     }
     if(activeLamp==2){
       mainRed=red;
       mainBlue=blue;
       mainGreen=green;
+      mainBright=bright;
     }
   }
-  bt_save_ls.setValue(0);
   //cmdForDisplay("bt_save_ls.val=0");
 }
 
@@ -182,6 +184,7 @@ void b_switch_lsPopCallback(void *ptr){
         blue=mainBlue;
         green=mainGreen;
         bright=mainBright;
+        bt_save_ls.setValue(0);
         break;
     case 2: 
         hauptleuchte_an=false;
@@ -191,6 +194,7 @@ void b_switch_lsPopCallback(void *ptr){
         blue=indBlue;
         green=indGreen;
         bright=indBright;
+        bt_save_ls.setValue(0);
         break;
     default: 
         hauptleuchte_an=false;
@@ -201,14 +205,22 @@ void b_switch_lsPopCallback(void *ptr){
   }
   Serielle_Textausgabe("b_switch_ls.txt=",text);
   refreshColours();
-  cmdForDisplay("n_hell_ls.val="+bright);
-  cmdForDisplay("n_red_ls.val="+red);
-  cmdForDisplay("n_blue_ls.val="+blue);
-  cmdForDisplay("n_green_ls.val="+green);
-  cmdForDisplay("h_hell_ls.val="+bright);
-  cmdForDisplay("h_red_ls.val="+red);
-  cmdForDisplay("h_blue_ls.val="+blue);
-  cmdForDisplay("h_green_ls.val="+green);
+  delay(10);
+  sendValue("n_hell_ls.val=",bright);
+  delay(10);
+  sendValue("n_red_ls.val=",red);
+  delay(10);
+  sendValue("n_blue_ls.val=",blue);
+  delay(10);
+  sendValue("n_green_ls.val=",green);
+  delay(10);
+  sendValue("h_hell_ls.val=",bright);
+  delay(10);
+  sendValue("h_red_ls.val=",red);
+  delay(10);
+  sendValue("h_blue_ls.val=",blue);
+  delay(10);
+  sendValue("h_green_ls.val=",green);
 }
 
 void bt_lernen_lkPopCallback(void *ptr){
@@ -318,10 +330,13 @@ void setup()
 void loop() 
 {
   nexLoop(nex_listen_list);
+  partymodus();
 
+  /*
   if(modus==4){
     partymodus();
   }
+  */
   //RGB_Licht_Funktion(0, 0, 0, 0, 255, 4);
   //RGB_Licht_Funktion(0, 0, 0, 0, 255, 6);
   //Signalgeber(0,0);
@@ -457,6 +472,17 @@ void cmdForDisplay(String cmd)
   Serial.write(0xFF);
   Serial.write(0xFF);
   Serial.write(0xFF);
+}
+
+void sendValue(String cmd, int value)
+{
+  char hex[4];
+
+  sprintf(hex, "%d", value);
+  Serielle_Textausgabe(cmd,hex);
+
+  //cmdForDisplay(cmd+hex);
+  //cmdForDisplay(cmd+hex);
 }
 
 /*So wird es in der Nextion Bib gemacht
