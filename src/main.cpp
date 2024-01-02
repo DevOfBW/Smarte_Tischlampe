@@ -27,21 +27,13 @@
 bool flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
 uint8_t helligkeit; //Wird benötigt für die LDR-Messung
 bool flanke_Licht_ein = false;
-int modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
-int modNeu=0;
-//int leuchtstaerke=0;
-bool hauptleuchte_an=false;
-bool indirektebeleuchtung_an=false;
-int durchlaufzaehler_party_farbwechsel=0;
-volatile int flankenzaehler_ein_aus=0;
-int activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
+uint8_t modNeu=0;
 uint8_t parRed[12]={128, 192, 239, 255, 239, 192, 128, 64, 17, 0, 17, 64};
 uint8_t parBlue[13]={213, 159, 97, 43, 8, 1, 23, 69, 128, 187, 233, 255, 248};
 uint8_t parGreen[14]={2, 5, 32, 78, 134, 189, 232, 254, 251, 224, 178, 122, 67, 24};
 uint8_t parBright[11]={128, 169, 196, 202, 185, 149, 107, 71, 54, 60, 87};
 int count=0;
 
-int red,green,blue,bright;
 //Speicher für den Mixmodus
 int indRed,indGreen,indBlue,indBright;
 int mainRed,mainGreen,mainBlue,mainBright;
@@ -55,6 +47,8 @@ volatile uint8_t flankenzaehler_ein_aus=0;
 uint8_t activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
 uint8_t red,green,blue,bright;
 //uint32_t memory;
+
+//TODO: Können die Bool-Werte nicht einfacher in zwei Integern gespeichert werden? Wäre auch leichter zu verstehen.
 char hmi_input [7]={};    //Es werden 4 char benötigt, da wir 4 Datensätze pro Button übertragen, um diesen zu identifizieren
 bool montag_alarm1_memory=true;
 bool montag_alarm2_memory=true;
@@ -114,10 +108,11 @@ RevEng_PAJ7620 sensor = RevEng_PAJ7620();
 // TODO: Alle Displayelemente und die Funktionen extrahieren
 
 //Displayelemente
-NexSlider h_red_ls = NexSlider(7, 1, "h_red_ls"); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
-NexSlider h_green_ls = NexSlider(7, 4, "h_green_ls"); //Slider gruen
-NexSlider h_blue_ls = NexSlider(7, 6, "h_blue_ls"); //Slider blau
-NexSlider h_hell_ls = NexSlider(7, 8, "h3");  //Slider helligkeit
+NexSlider p01 = NexSlider(6, 1, "p01"); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
+NexSlider p03 = NexSlider(6, 4, "p03"); //Slider gruen
+NexSlider p05 = NexSlider(6, 6, "p05"); //Slider blau
+NexSlider p07 = NexSlider(6, 8, "h3");  //Slider helligkeit
+/*
 NexDSButton bt_save_ls = NexDSButton(7, 2, "bt_save_ls"); //Button Licht an/aus
 NexButton b_switch_ls = NexButton(7,15,"b_switch_ls");  //Button um die Lampen umzuschalten
 NexDSButton bt_lernen_lk = NexDSButton(1,9,"bt_lernen_lk");
@@ -128,22 +123,13 @@ NexDSButton bt_mix_lk = NexDSButton(1,13,"bt_mix_lk");
 NexRadio r_hauptle_lk = NexRadio(1,7,"r_hauptle_lk");
 NexRadio r_indirektb_lk = NexRadio(1,8,"r_indirektb_lk");
 NexButton b_mixco_lk = NexButton(1,14,"b_mixco_lk");
+*/
 
 NexTouch *nex_listen_list[]={
-  &h_red_ls,
-  &h_green_ls,
-  &h_blue_ls,
-  &h_hell_ls,
-  &bt_save_ls,
-  &b_switch_ls,
-  &bt_lernen_lk,
-  &bt_relax_lk,
-  &bt_auto_lk,
-  &bt_party_lk,
-  &bt_mix_lk,
-  &r_hauptle_lk,
-  &r_indirektb_lk,
-  &b_mixco_lk
+  &p01,
+  &p03,
+  &p05,
+  &p07
 };
 
 #pragma region DisplayFunctions
@@ -154,154 +140,129 @@ bool sendCmdToDisplay(String command){
   Serial.write(0xFF);
 }
 
-void h_red_lsPopCallback(void *ptr){
-  h_red_ls.getValue(&memory);
+void p01PopCallback(void *ptr){
+  p01.getValue(&memory);
   red=memory;
-  sendValue("n_red_ls.val=",red);
   refreshColours();
 }
 
-void h_green_lsPopCallback(void *ptr){
-  h_green_ls.getValue(&memory);
+void p03PopCallback(void *ptr){
+  p03.getValue(&memory);
   green=memory;
-  sendValue("n_green_ls.val=",green);
   refreshColours();
 }
 
-void h_blue_lsPopCallback(void *ptr){
-  h_blue_ls.getValue(&memory);
+void p05PopCallback(void *ptr){
+  p05.getValue(&memory);
   blue=memory;
-  sendValue("n_blue_ls.val=",blue);
   refreshColours();
 }
 
-void h_hell_lsPopCallback(void *ptr){
-  h_hell_ls.getValue(&memory);
+void p07PopCallback(void *ptr){
+  p07.getValue(&memory);
   bright=memory;
-  sendValue("n_hell_ls.val=",bright);
   refreshColours();
 }
 
 //Die Farbwerte für den aktuellen Modus speichern
 //Speichert die Werte für die aktiven Lampen
-void bt_save_lsPopCallback(void *ptr){
-  uint32_t state=0;
-  bt_save_ls.getValue(&state);
-
-  if(state == 1){
-    if(activeLamp==1){
-      indRed=red;
-      indBlue=blue;
-      indGreen=green;
-      indBright=bright;
-    }
-    if(activeLamp==2){
-      mainRed=red;
-      mainBlue=blue;
-      mainGreen=green;
-      mainBright=bright;
-    }
+void bt_save_lsPopCallback(){
+  if(activeLamp==1){
+    indRed=red;
+    indBlue=blue;
+    indGreen=green;
+    indBright=bright;
   }
-  //cmdForDisplay("bt_save_ls.val=0");
+  if(activeLamp==2){
+    mainRed=red;
+    mainBlue=blue;
+    mainGreen=green;
+    mainBright=bright;
+  }
 }
 
-void b_switch_lsPopCallback(void *ptr){
-  String text;
+void b_switch_lsPopCallback(){
+  char text;
   activeLamp++;
   switch(activeLamp){
     case 1: 
         hauptleuchte_an=true;
         indirektebeleuchtung_an=false;
-        text="Haupt-\rleuchte";
+        text="Haupt";
         red=mainRed;
         blue=mainBlue;
         green=mainGreen;
         bright=mainBright;
-        bt_save_ls.setValue(0);
         break;
     case 2: 
         hauptleuchte_an=false;
         indirektebeleuchtung_an=true;
-        text="Neben-\rleuchte";
+        text="Neben";
         red=indRed;
         blue=indBlue;
         green=indGreen;
         bright=indBright;
-        bt_save_ls.setValue(0);
         break;
     default: 
         hauptleuchte_an=false;
         indirektebeleuchtung_an=false;
-        text="Beide\raus";
+        text="Aus";
         activeLamp=0;
         break;
   }
-  Serielle_Textausgabe("b_switch_ls.txt=",text);
+  Serielle_Textausgabe("p10.txt=",&text);
   refreshColours();
   delay(10);
-  sendValue("n_hell_ls.val=",bright);
+  sendValue("p08.val=",bright);
   delay(10);
-  sendValue("n_red_ls.val=",red);
+  sendValue("p02.val=",red);
   delay(10);
-  sendValue("n_blue_ls.val=",blue);
+  sendValue("p06.val=",blue);
   delay(10);
-  sendValue("n_green_ls.val=",green);
+  sendValue("p04.val=",green);
   delay(10);
-  sendValue("h_hell_ls.val=",bright);
+  sendValue("p07.val=",bright);
   delay(10);
-  sendValue("h_red_ls.val=",red);
+  sendValue("p01.val=",red);
   delay(10);
-  sendValue("h_blue_ls.val=",blue);
+  sendValue("p05.val=",blue);
   delay(10);
-  sendValue("h_green_ls.val=",green);
+  sendValue("p03.val=",green);
 }
 
-void bt_lernen_lkPopCallback(void *ptr){
-  if(!setModusActive(1)){
-    cmdForDisplay("bt_lernen_lk.val=1");
-  }
+void bt_lernen_lkPopCallback(){
+  setModusActive(1);
 }
 
-void bt_relax_lkPopCallback(void *ptr){
-  if(!setModusActive(2)){
-    cmdForDisplay("bt_relax_lk.val=1");
-  }
+void bt_relax_lkPopCallback(){
+  setModusActive(2);
 }
 
-void bt_party_lkPopCallback(void *ptr){
-  if(!setModusActive(4)){
-    cmdForDisplay("bt_party_lk.val=1");
-  }
+void bt_party_lkPopCallback(){
+  setModusActive(4);
 }
 
-void bt_auto_lkPopCallback(void *ptr){
-  if(!setModusActive(6)){
-    cmdForDisplay("bt_auto_lk.val=1");
-  }
+void bt_auto_lkPopCallback(){
+  setModusActive(6);
 }
 
-void bt_mix_lkPopCallback(void *ptr){
-  if(!setModusActive(3)){
-    cmdForDisplay("bt_mix_lk.val=1");
-  }
+void bt_mix_lkPopCallback(){
+  setModusActive(3);
 }
 
 //Konfigurationsbutton
-void b_mixco_lkPopCallback(void *ptr){
-  if(!setModusActive(3)){
-    cmdForDisplay("bt_mix_lk.val=1");
-  }
+void b_mixco_lkPopCallback(){
+  setModusActive(3);
+  cmdForDisplay("l03.val=1");
 }
 
-void r_hauptle_lkPopCallback(void *ptr){
-  r_hauptle_lk.getValue(&memory);
-  hauptleuchte_an=(memory==0)?false:true;
+void r_hauptle_lkPopCallback(){
+  hauptleuchte_an=!hauptleuchte_an;
   refreshColours();
 }
 
-void r_indirektb_lkPopCallback(void *ptr){
-  r_indirektb_lk.getValue(&memory);
-  indirektebeleuchtung_an=(memory==0)?false:true;
+void r_indirektb_lkPopCallback(){
+  indirektebeleuchtung_an=!indirektebeleuchtung_an;
   refreshColours();
 }
 #pragma endregion
@@ -341,6 +302,12 @@ void setup()
   Serial.println("PAJ7620 init: OK");
   Serial.println("Please input your gestures:"); */
 
+  p01.attachPop(p01PopCallback);
+  p03.attachPop(p03PopCallback);
+  p05.attachPop(p05PopCallback);
+  p07.attachPop(p07PopCallback);
+
+  /*
   //RTC
   if (! rtc.begin()) {
     //TODO: Ausgabe der Fehlermeldung auf Touchdisplay
@@ -367,15 +334,20 @@ void setup()
   rtc.clearAlarm(1);
   rtc.clearAlarm(2);  
   rtc.writeSqwPinMode(DS3231_OFF);
+  */
+
 }
 
 
 // Main-Code-Schleife, diese Methode wird ständig wiederholt
 void loop() 
 {
- DateTime now = rtc.now();
+  nexLoop(nex_listen_list);
+  partymodus();
 
- //HMI input bitstream lesen
+  DateTime now = rtc.now();
+
+  //HMI input bitstream lesen
    if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
   {
     for(int i=0;i<6;i++) //Eingehende Nummer von Inputs einlesen (xx yy zz dd aa uu ii) yy=Seite, zz=Button 1,2,3
@@ -392,14 +364,42 @@ void loop()
 switch (hmi_input[1])
 {
   case 0: //Mainpage
-        HMI_Input_loeschen(hmi_input);
-  break;
-
-  case 1: //Licht-Konfig-page
       HMI_Input_loeschen(hmi_input);
   break;
 
+
+
+  case 1: //Licht-Konfig-page
+      switch(hmi_input[2]){
+        case 0x13:
+          bt_lernen_lkPopCallback();
+          break;
+        case 0x15:
+          bt_relax_lkPopCallback();
+          break;
+        case 0x14:
+          bt_auto_lkPopCallback();
+          break;
+        case 0x03:
+          bt_mix_lkPopCallback();
+          break;
+        case 0x16:
+          bt_party_lkPopCallback();
+          break;
+        case 0x10:
+          r_hauptle_lkPopCallback();
+          break;
+        case 0x11:
+          r_indirektb_lkPopCallback();
+          break;
+      }
+      HMI_Input_loeschen(hmi_input);
+  break;
+
+
+
   case 2: //Wecker-page
+  #pragma region Wecker
       char alarm1_stunde[4];
       char alarm1_minute[4];
       char alarm2_stunde[4];
@@ -637,6 +637,7 @@ switch (hmi_input[1])
         }
         HMI_Input_loeschen(hmi_input); 
   break;
+  #pragma endregion
 
   case 3: //Settings-page
       switch (hmi_input[2])
@@ -651,11 +652,16 @@ switch (hmi_input[1])
       HMI_Input_loeschen(hmi_input);
   break;
 
+
+
   case 4: //Gestensteuerung-page
       HMI_Input_loeschen(hmi_input);
   break;
 
+
+
   case 5: //Uhr-Konfig-page
+  #pragma region UhrKonfig
       //DateTime now = rtc.now();
       static int8_t tag_memory=now.day();
       char tag[3];
@@ -764,8 +770,17 @@ switch (hmi_input[1])
       }
       HMI_Input_loeschen(hmi_input);
       break;
+  #pragma endregion
 
   case 6: //Farbmix-page
+      switch(hmi_input[2]){
+        case 0x02:
+          bt_save_lsPopCallback();
+          break;
+        case 0x15:
+          b_switch_lsPopCallback();
+          break;
+      }
       HMI_Input_loeschen(hmi_input);
   break;
 
@@ -879,20 +894,20 @@ boolean setModusActive(int newMod){
   //alten Modus abschalten
   switch(modus){
     case 1:
-      cmdForDisplay("bt_lernen_lk.val=0");
+      cmdForDisplay("l01.val=0");
       //Serielle_Textausgabe("bt_lernen_lk.val=","0"); 
       break;
     case 2:
-      cmdForDisplay("bt_relax_lk.val=0");
+      cmdForDisplay("l02.val=0");
       break;
     case 3:
-      cmdForDisplay("bt_mix_lk.val=0");
+      cmdForDisplay("l03.val=0");
       break;
     case 4:
-      cmdForDisplay("bt_party_lk.val=0");
+      cmdForDisplay("l05.val=0");
       break;
     case 6:
-      cmdForDisplay("bt_auto_lk.val=0");
+      cmdForDisplay("l04.val=0");
       break;
   }
 
@@ -902,7 +917,7 @@ boolean setModusActive(int newMod){
       green=255;
       blue=255;
       bright=255;
-      Serielle_Textausgabe("t_actmod_lk.txt=","Lernen"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      Serielle_Textausgabe("l06.txt=","Lernen"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       refreshColours();
       break;
     case 2: //Entspannungslicht (Relax)
@@ -910,16 +925,16 @@ boolean setModusActive(int newMod){
       green=142;
       blue=28;
       bright=255;
-      Serielle_Textausgabe("t_actmod_lk.txt=","Relax"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      Serielle_Textausgabe("l06.txt=","Relax"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       refreshColours();
       break;
     case 4: //Party
-      Serielle_Textausgabe("t_actmod_lk.txt=","Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      Serielle_Textausgabe("l06.txt=","Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
         //wird in anderen Funktion gehändelt
         //Task aktivieren?
       break;
     case 3: //Farben mix
-      Serielle_Textausgabe("t_actmod_lk.txt=","Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      Serielle_Textausgabe("l06.txt=","Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       activateHauptBel(mainRed,mainGreen,mainBlue,mainBright);
       activateIndBel(indRed, indGreen, indBlue, indBright);
       break;
@@ -928,7 +943,7 @@ boolean setModusActive(int newMod){
       green=0;
       blue=0;
       bright=150;
-      Serielle_Textausgabe("t_actmod_lk.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      Serielle_Textausgabe("l06.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       refreshColours();
       break;
     default:
@@ -996,6 +1011,19 @@ void Serielle_Textausgabe(const char* textbox, const char* text)
       Serial.print(textbox);
       Serial.print(cmd);
       Serial.print(text);
+      Serial.print(cmd);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+  }
+}
+
+void sendValue(String object, int value){
+  const char* cmd="\"";
+  for(int i=0;i<=2;i++){
+      Serial.print(object+".val=");
+      Serial.print(cmd);
+      Serial.print(value);
       Serial.print(cmd);
       Serial.write(0xFF);
       Serial.write(0xFF);
