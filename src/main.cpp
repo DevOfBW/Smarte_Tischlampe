@@ -3,6 +3,8 @@
 // 23.12.2023 RAM: 36,8%  Flash: 39,3% (Uhrzeit implementiert)
 // 31.12.2023 RAM: 44,6%  Flash: 48,5%
 
+//TODO: Wenn Alarm im Display verändert wird muss dies automatisch angepasst werden oder es muss erneut gespeichert werden
+
 #include <Arduino.h>
 #include "Adafruit_NeoPixel.h"  //Beleuchtung
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
@@ -374,7 +376,7 @@ switch (hmi_input[1])
           case 0x30: //Alarm 2 Ein/Aus
               if(alarm2_ein_memory==true)
               {
-                rtc.clearAlarm(1);
+                rtc.clearAlarm(2);
                 alarm2_ein_memory=false;
                 Serial.println("Alarm_2_ausgeschaltet");
               } else if (alarm2_ein_memory==false)
@@ -383,7 +385,20 @@ switch (hmi_input[1])
                 Serial.println("Alarm_2_eingeschalten");
               } 
             break;
-          case 0x03: //save
+          case 0x03: //Alarm aus
+                if(rtc.alarmFired(1)){
+                  rtc.clearAlarm(1);  //Alarm ausschalten
+                }
+                if(rtc.alarmFired(2)){
+                  rtc.clearAlarm(2);  //Alarm ausschalten
+                }
+                if(rtc.alarmFired(1) && rtc.alarmFired(2)){
+                  rtc.clearAlarm(1);  //Alarm ausschalten
+                  rtc.clearAlarm(2);  //Alarm ausschalten
+                }
+                
+                
+                noTone(4);  //Signalton ausschalten
             break;
 
             default:
@@ -561,16 +576,16 @@ if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==tr
 
 //TODO: muss wieder entfertn werden wnn wieder mit dem interupt gearbeitet wird
 static uint8_t anzeige_zeit;
-if(anzeige_zeit==150){
+if(anzeige_zeit==100){
 displayTime (false, now);
-
-if(rtc.alarmFired(1) && alarm1_ein_memory==true)
-{
-  Signalgeber(true);
-}
-
-Serial.println("");
-Serial.println(alarm1_ein_memory);
+  if(rtc.alarmFired(1) && alarm1_ein_memory==true)
+  {
+    Signalgeber(true);
+  }
+  if(rtc.alarmFired(2) && alarm2_ein_memory==true)
+  {
+    Signalgeber(true);
+  }
 }
 anzeige_zeit++;
 
@@ -745,7 +760,9 @@ void Signalgeber(bool ton_an)
 {
   if(ton_an==true){
     tone(4,264); // (pin, frequency, duration)
-    delay(200);
+    delay(100);
+    tone(4,464); // (pin, frequency, duration)
+    delay(100);
   }else{
     noTone(4);
   }
