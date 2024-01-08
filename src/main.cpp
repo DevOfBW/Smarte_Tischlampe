@@ -197,67 +197,25 @@ switch (hmi_input[1])
             break;
 
           case 0x04: //Montag (Alarm1)
-              if(montag_alarm1_memory==true)
-              {
-                montag_alarm1_memory=false;
-              } else if (montag_alarm1_memory==false)
-              {
-                montag_alarm1_memory=true;
-              } 
+              montag_alarm1_memory=!montag_alarm1_memory; 
             break;
           case 0x05: //Dienstag (Alarm1)
-              if(dienstag_alarm1_memory==true)
-              {
-                dienstag_alarm1_memory=false;
-              } else if (dienstag_alarm1_memory==false)
-              {
-                dienstag_alarm1_memory=true;
-              }     
+              dienstag_alarm1_memory=!dienstag_alarm1_memory;    
             break;
           case 0x07: //Mittwoch (Alarm1)
-              if(mittwoch_alarm1_memory==true)
-              {
-                mittwoch_alarm1_memory=false;
-              } else if (mittwoch_alarm1_memory==false)
-              {
-                mittwoch_alarm1_memory=true;
-              } 
+              mittwoch_alarm1_memory=!mittwoch_alarm1_memory; 
             break;
           case 0x06: //Donnerstag (Alarm1)
-              if(donnerstag_alarm1_memory==true)
-              {
-                donnerstag_alarm1_memory=false;
-              } else if (donnerstag_alarm1_memory==false)
-              {
-                donnerstag_alarm1_memory=true;
-              } 
+              donnerstag_alarm1_memory=!donnerstag_alarm1_memory;
             break;
           case 0x09: //Freitag (Alarm1)
-              if(freitag_alarm1_memory==true)
-              {
-                freitag_alarm1_memory=false;
-              } else if (freitag_alarm1_memory==false)
-              {
-                freitag_alarm1_memory=true;
-              } 
+              freitag_alarm1_memory=!freitag_alarm1_memory;
             break;
           case 0x08:  //Samstag (Alarm1)
-              if(samstag_alarm1_memory==true)
-              {
-                samstag_alarm1_memory=false;
-              } else if (samstag_alarm1_memory==false)
-              {
-                samstag_alarm1_memory=true;
-              } 
+              samstag_alarm1_memory=!samstag_alarm1_memory;
             break;
           case 0x0A: //Sonntag (Alarm1)
-              if(sonntag_alarm1_memory==true)
-              {
-                sonntag_alarm1_memory=false;
-              } else if (sonntag_alarm1_memory==false)
-              {
-                sonntag_alarm1_memory=true;
-              } 
+              sonntag_alarm1_memory=!sonntag_alarm1_memory;
             break;
 
           case 0x1C: //Alarm 2 Stunde verringern(1, 0, 23,...)
@@ -295,67 +253,25 @@ switch (hmi_input[1])
             break;
 
           case 0x0B: //Montag (Alarm2)
-              if(montag_alarm2_memory==true)
-              {
-                montag_alarm2_memory=false;
-              } else if (montag_alarm2_memory==false)
-              {
-                montag_alarm2_memory=true;
-              } 
+              montag_alarm2_memory=!montag_alarm2_memory;
             break;
           case 0x0C: //Dienstag (Alarm2)
-              if(dienstag_alarm2_memory==true)
-              {
-                dienstag_alarm2_memory=false;
-              } else if (dienstag_alarm2_memory==false)
-              {
-                dienstag_alarm2_memory=true;
-              }     
+              dienstag_alarm2_memory=!dienstag_alarm2_memory;     
             break;
           case 0x0E: //Mittwoch (Alarm2)
-              if(mittwoch_alarm2_memory==true)
-              {
-                mittwoch_alarm2_memory=false;
-              } else if (mittwoch_alarm2_memory==false)
-              {
-                mittwoch_alarm2_memory=true;
-              } 
+              mittwoch_alarm2_memory=!mittwoch_alarm2_memory;
             break;
           case 0x0D: //Donnerstag (Alarm2)
-              if(donnerstag_alarm2_memory==true)
-              {
-                donnerstag_alarm2_memory=false;
-              } else if (donnerstag_alarm2_memory==false)
-              {
-                donnerstag_alarm2_memory=true;
-              } 
+              donnerstag_alarm2_memory=!donnerstag_alarm2_memory;
             break;
           case 0x10: //Freitag (Alarm2)
-              if(freitag_alarm2_memory==true)
-              {
-                freitag_alarm2_memory=false;
-              } else if (freitag_alarm2_memory==false)
-              {
-                freitag_alarm2_memory=true;
-              } 
+              freitag_alarm2_memory=!freitag_alarm2_memory; 
             break;
           case 0x0F:  //Samstag (Alarm2)
-              if(samstag_alarm2_memory==true)
-              {
-                samstag_alarm2_memory=false;
-              } else if (samstag_alarm2_memory==false)
-              {
-                samstag_alarm2_memory=true;
-              } 
+              samstag_alarm2_memory=!samstag_alarm2_memory;
             break;
           case 0x11: //Sonntag (Alarm2)
-              if(sonntag_alarm2_memory==true)
-              {
-                sonntag_alarm2_memory=false;
-              } else if (sonntag_alarm2_memory==false)
-              {
-                sonntag_alarm2_memory=true;
-              } 
+              sonntag_alarm2_memory=!sonntag_alarm2_memory;
             break;
 
           case 0x2F: //Alarm 1 Ein/Aus
