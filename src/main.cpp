@@ -16,8 +16,7 @@
 #define LED_COUNT_IndLi 29    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
 #define LED_PIN_IndRe    5    // LED Pin für die indirekte Beleuchtung auf der linken Seite an Pin 6
 #define LED_COUNT_IndRe 14    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
-#define main_light_width 5
-#define main_light_high 5
+#define main_light_count 25
 #define main_light_pin 3
 #define PIN_LED 13
 #define PIN_schalter 7
@@ -100,7 +99,7 @@ Adafruit_NeoPixel strip_IndRe(LED_COUNT_IndRe, LED_PIN_IndRe, NEO_GRB + NEO_KHZ8
 // NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 // NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 // NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
-Adafruit_NeoPixel main_light(25,main_light_pin, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel main_light(main_light_count,main_light_pin, NEO_GRB + NEO_KHZ800);
 
 //Gestensensorobjekt
 RevEng_PAJ7620 sensor = RevEng_PAJ7620();
@@ -111,7 +110,7 @@ RevEng_PAJ7620 sensor = RevEng_PAJ7620();
 NexSlider p01 = NexSlider(6, 1, "p01"); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
 NexSlider p03 = NexSlider(6, 4, "p03"); //Slider gruen
 NexSlider p05 = NexSlider(6, 6, "p05"); //Slider blau
-NexSlider p07 = NexSlider(6, 8, "h3");  //Slider helligkeit
+NexSlider p07 = NexSlider(6, 8, "p07");  //Slider helligkeit
 /*
 NexDSButton bt_save_ls = NexDSButton(7, 2, "bt_save_ls"); //Button Licht an/aus
 NexButton b_switch_ls = NexButton(7,15,"b_switch_ls");  //Button um die Lampen umzuschalten
@@ -125,13 +124,6 @@ NexRadio r_indirektb_lk = NexRadio(1,8,"r_indirektb_lk");
 NexButton b_mixco_lk = NexButton(1,14,"b_mixco_lk");
 */
 
-NexTouch *nex_listen_list[]={
-  &p01,
-  &p03,
-  &p05,
-  &p07
-};
-
 #pragma region DisplayFunctions
 /*
 bool sendCmdToDisplay(String command){
@@ -141,25 +133,25 @@ bool sendCmdToDisplay(String command){
   Serial.write(0xFF);
 }*/
 
-void p01PopCallback(void *ptr){
+void p01PopCallback(){
   p01.getValue(&memory);
   red=memory;
   refreshColours();
 }
 
-void p03PopCallback(void *ptr){
+void p03PopCallback(){
   p03.getValue(&memory);
   green=memory;
   refreshColours();
 }
 
-void p05PopCallback(void *ptr){
+void p05PopCallback(){
   p05.getValue(&memory);
   blue=memory;
   refreshColours();
 }
 
-void p07PopCallback(void *ptr){
+void p07PopCallback(){
   p07.getValue(&memory);
   bright=memory;
   refreshColours();
@@ -168,13 +160,12 @@ void p07PopCallback(void *ptr){
 //Die Farbwerte für den aktuellen Modus speichern
 //Speichert die Werte für die aktiven Lampen
 void bt_save_lsPopCallback(){
-  if(activeLamp==1){
+  if(activeLamp==2){
     indRed=red;
     indBlue=blue;
     indGreen=green;
     indBright=bright;
-  }
-  if(activeLamp==2){
+  }else if(activeLamp==1){
     mainRed=red;
     mainBlue=blue;
     mainGreen=green;
@@ -183,13 +174,13 @@ void bt_save_lsPopCallback(){
 }
 
 void b_switch_lsPopCallback(){
-  char text;
+  char text[6];
   activeLamp++;
   switch(activeLamp){
     case 1: 
         hauptleuchte_an=true;
         indirektebeleuchtung_an=false;
-        text="Haupt";
+        strcpy(text,"Haupt");
         red=mainRed;
         blue=mainBlue;
         green=mainGreen;
@@ -198,7 +189,7 @@ void b_switch_lsPopCallback(){
     case 2: 
         hauptleuchte_an=false;
         indirektebeleuchtung_an=true;
-        text="Neben";
+        strcpy(text,"Neben");
         red=indRed;
         blue=indBlue;
         green=indGreen;
@@ -207,11 +198,11 @@ void b_switch_lsPopCallback(){
     default: 
         hauptleuchte_an=false;
         indirektebeleuchtung_an=false;
-        text="Aus";
+        strcpy(text,"Aus  ");
         activeLamp=0;
         break;
   }
-  Serielle_Textausgabe("p10.txt=",&text);
+  Serielle_Textausgabe("p10.txt=",text);
   refreshColours();
   //delay(10);
   sendValue("p08",bright);
@@ -229,6 +220,7 @@ void b_switch_lsPopCallback(){
   sendValue("p05",blue);
   //delay(10);
   sendValue("p03",green);
+  refreshColours();
 }
 
 //Konfigurationsbutton
@@ -283,11 +275,6 @@ void setup()
   Serial.println("PAJ7620 init: OK");
   Serial.println("Please input your gestures:"); */
 
-  p01.attachPop(p01PopCallback);
-  p03.attachPop(p03PopCallback);
-  p05.attachPop(p05PopCallback);
-  p07.attachPop(p07PopCallback);
-
   /*
   //RTC
   if (! rtc.begin()) {
@@ -323,26 +310,18 @@ void setup()
 // Main-Code-Schleife, diese Methode wird ständig wiederholt
 void loop() 
 {
-  nexLoop(nex_listen_list);
-  //partymodus();
+  //nexLoop(nex_listen_list);
 
   //DateTime now = rtc.now();
 
   //HMI input bitstream lesen
-   if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
+  if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
   {
     for(int i=0;i<6;i++) //Eingehende Nummer von Inputs einlesen (xx yy zz dd aa uu ii) yy=Seite, zz=Button 1,2,3
     {
       hmi_input[i]=hmi_input[i+1];
     }
     hmi_input[6]=Serial.read();
-  }else{
-    if(help=100){
-      indirektebeleuchtung_an=true;
-      partymodus();
-      help=0;
-    }
-    help++;
   }
 
 
@@ -768,6 +747,18 @@ switch (hmi_input[1])
         case 0x0F:
           b_switch_lsPopCallback();
           break;
+        case 0x01:
+          p01PopCallback();
+          break;
+        case 0x04:
+          p03PopCallback();
+          break;
+        case 0x06:
+          p05PopCallback();
+          break;
+        case 0x08:
+          p07PopCallback();
+          break;
       }
       HMI_Input_loeschen(hmi_input);
   break;
@@ -886,7 +877,7 @@ boolean setModusActive(int newMod){
   switch(modus){
     case 1:
       sendValue("l01",0);
-      //Serielle_Textausgabe("bt_lernen_lk.val=","0"); 
+      //Serielle_Textausgabe("l01.val=","0"); 
       break;
     case 2:
       sendValue("l02",0);
@@ -1002,15 +993,12 @@ void Serielle_Textausgabe(const char* textbox, const char* text)
 }
 
 void sendValue(const char* object, uint8_t value){
-  char* buf;
+  char buf[3];
   sprintf(buf, "%02d", value);
-  const char* cmd="\"";
   for(int i=0;i<=2;i++){
       Serial.print(object);
       Serial.print(".val=");
-      Serial.print(cmd);
       Serial.print(buf);
-      Serial.print(cmd);
       Serial.write(0xFF);
       Serial.write(0xFF);
       Serial.write(0xFF);
