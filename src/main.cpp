@@ -78,7 +78,6 @@ RevEng_PAJ7620 sensor = RevEng_PAJ7620();
 //Wecker + Uhrzeit
 RTC_DS3231 rtc;
 char wochentage[7][3] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
-char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"}; 
 
 
 // Diese Mehtode wird einmalig zum Programmstart ausgeführt.
@@ -237,11 +236,9 @@ switch (hmi_input[1])
               if(freitag_alarm1_memory==true)
               {
                 freitag_alarm1_memory=false;
-                Serial.println("FR aus");
               } else if (freitag_alarm1_memory==false)
               {
                 freitag_alarm1_memory=true;
-                Serial.println("FR ein");
               } 
             break;
           case 0x08:  //Samstag (Alarm1)
@@ -263,7 +260,7 @@ switch (hmi_input[1])
               } 
             break;
 
-          case 0x1C: //Alarm 2Stunde verringern(1, 0, 23,...)
+          case 0x1C: //Alarm 2 Stunde verringern(1, 0, 23,...)
             alarm2_stunde_memory--;
             if(alarm2_stunde_memory<0){
             alarm2_stunde_memory=23;
@@ -366,11 +363,9 @@ switch (hmi_input[1])
               {
                 rtc.clearAlarm(1);
                 alarm1_ein_memory=false;
-                Serial.println("Alarm_1_ausgeschaltet");
               } else if (alarm1_ein_memory==false)
               {
                 alarm1_ein_memory=true;
-                Serial.println("Alarm_1_eingeschalten");
               } 
             break;
           case 0x30: //Alarm 2 Ein/Aus
@@ -378,11 +373,9 @@ switch (hmi_input[1])
               {
                 rtc.clearAlarm(2);
                 alarm2_ein_memory=false;
-                Serial.println("Alarm_2_ausgeschaltet");
               } else if (alarm2_ein_memory==false)
               {
                 alarm2_ein_memory=true;
-                Serial.println("Alarm_2_eingeschalten");
               } 
             break;
           case 0x03: //Alarm aus
@@ -396,8 +389,7 @@ switch (hmi_input[1])
                   rtc.clearAlarm(1);  //Alarm ausschalten
                   rtc.clearAlarm(2);  //Alarm ausschalten
                 }
-                
-                
+              
                 noTone(4);  //Signalton ausschalten
             break;
 
@@ -425,17 +417,16 @@ switch (hmi_input[1])
   break;
 
   case 5: //Uhr-Konfig-page
-      //DateTime now = rtc.now();
       static int8_t tag_memory=now.day();
       char tag[3];
       static int8_t monat_memory=now.month();
       char monat[3];
       static int16_t jahr_memory=now.year();
-      char jahr[6];
+      char jahr[5];
       static int8_t stunde_memory=now.hour();
-      char stunde[4];
+      char stunde[3];
       static int8_t minute_memory=now.minute();
-      char minute[4];
+      char minute[3];
 
       switch (hmi_input[2])
       {
@@ -572,9 +563,6 @@ if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==tr
     }
 
 
-
-
-//TODO: muss wieder entfertn werden wnn wieder mit dem interupt gearbeitet wird
 static uint8_t anzeige_zeit;
 if(anzeige_zeit==100){
 displayTime (false, now);
@@ -600,10 +588,6 @@ void HMI_Input_loeschen(char* HMI_Input_array)
       }
 }
 
-//Interrupt Service Routine - This routine is performed when a falling edge on the 1Hz SQW clock from the RTC is detected
-/*void ISR_RTC () {
-    flanke_rtc_sqw = false; //A falling edge was detected on the SQWinput pin.  Now set EDGE equal to 0.
-}*/
 
 void displayTime (bool uhr_einstellen, DateTime now) {
   //TODO: übergabeparameter kann entfernt werden, kann immer angezeigt werden in den feldern
@@ -637,8 +621,6 @@ void displayTime (bool uhr_einstellen, DateTime now) {
   dtostrf(rtc.getTemperature(), 6, 2, temperatur);
   sprintf(temperatur, "%s Grad C", temperatur);
   Serielle_Textausgabe("m04.txt=", temperatur);
-
-  
 }
 
 void setModusActive(){
