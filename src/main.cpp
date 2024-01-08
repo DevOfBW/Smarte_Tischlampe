@@ -896,20 +896,20 @@ boolean setModusActive(int newMod){
   //alten Modus abschalten
   switch(modus){
     case 1:
-      sendValue("l01.val=","0");
+      sendValue("l01","0");
       //Serielle_Textausgabe("bt_lernen_lk.val=","0"); 
       break;
     case 2:
-      sendValue("l02.val=","0");
+      sendValue("l02","0");
       break;
     case 3:
-      sendValue("l03.val=","0");
+      sendValue("l03","0");
       break;
     case 4:
-      sendValue("l05.val=","0");
+      sendValue("l05","0");
       break;
     case 6:
-      sendValue("l04.val=","0");
+      sendValue("l04","0");
       break;
   }
 
