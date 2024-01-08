@@ -35,8 +35,8 @@ uint8_t parBright[11]={128, 169, 196, 202, 185, 149, 107, 71, 54, 60, 87};
 int count=0;
 
 //Speicher für den Mixmodus
-int indRed,indGreen,indBlue,indBright;
-int mainRed,mainGreen,mainBlue,mainBright;
+uint8_t indRed,indGreen,indBlue,indBright;
+uint8_t mainRed,mainGreen,mainBlue,mainBright;
 uint32_t memory;
 uint8_t modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
 uint8_t leuchtstaerke=0;
@@ -70,6 +70,7 @@ int8_t alarm1_minute_memory;
 int8_t alarm1_stunde_memory;
 int8_t alarm2_minute_memory;
 int8_t alarm2_stunde_memory;
+int help=0;
 
 
 // Funktionen:
@@ -84,9 +85,9 @@ void HMI_Input_loeschen(char*);
 boolean setModusActive(int);
 void partymodus();
 void refreshColours();
-void activateIndBel(int, int, int, int);
-void activateHauptBel(int, int, int, int);
-void sendValue(const char*, const char*);
+void activateIndBel(uint8_t, uint8_t, uint8_t, uint8_t);
+void activateHauptBel(uint8_t, uint8_t, uint8_t, uint8_t);
+void sendValue(const char*, uint8_t);
 
 // Objekte:
 Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
@@ -132,12 +133,13 @@ NexTouch *nex_listen_list[]={
 };
 
 #pragma region DisplayFunctions
+/*
 bool sendCmdToDisplay(String command){
   Serial.print(command);
   Serial.write(0xFF);
   Serial.write(0xFF);
   Serial.write(0xFF);
-}
+}*/
 
 void p01PopCallback(void *ptr){
   p01.getValue(&memory);
@@ -211,48 +213,28 @@ void b_switch_lsPopCallback(){
   }
   Serielle_Textausgabe("p10.txt=",&text);
   refreshColours();
-  delay(10);
-  sendValue("p08.val=",bright);
-  delay(10);
-  sendValue("p02.val=",red);
-  delay(10);
-  sendValue("p06.val=",blue);
-  delay(10);
-  sendValue("p04.val=",green);
-  delay(10);
-  sendValue("p07.val=",bright);
-  delay(10);
-  sendValue("p01.val=",red);
-  delay(10);
-  sendValue("p05.val=",blue);
-  delay(10);
-  sendValue("p03.val=",green);
-}
-
-void bt_lernen_lkPopCallback(){
-  setModusActive(1);
-}
-
-void bt_relax_lkPopCallback(){
-  setModusActive(2);
-}
-
-void bt_party_lkPopCallback(){
-  setModusActive(4);
-}
-
-void bt_auto_lkPopCallback(){
-  setModusActive(6);
-}
-
-void bt_mix_lkPopCallback(){
-  setModusActive(3);
+  //delay(10);
+  sendValue("p08",bright);
+  //delay(10);
+  sendValue("p02",red);
+  //delay(10);
+  sendValue("p06",blue);
+  //delay(10);
+  sendValue("p04",green);
+  //delay(10);
+  sendValue("p07",bright);
+  //delay(10);
+  sendValue("p01",red);
+  //delay(10);
+  sendValue("p05",blue);
+  //delay(10);
+  sendValue("p03",green);
 }
 
 //Konfigurationsbutton
 void b_mixco_lkPopCallback(){
   setModusActive(3);
-  sendValue("l03","1");
+  sendValue("l03",1);
 }
 
 void r_hauptle_lkPopCallback(){
@@ -342,7 +324,7 @@ void setup()
 void loop() 
 {
   nexLoop(nex_listen_list);
-  partymodus();
+  //partymodus();
 
   //DateTime now = rtc.now();
 
@@ -354,6 +336,13 @@ void loop()
       hmi_input[i]=hmi_input[i+1];
     }
     hmi_input[6]=Serial.read();
+  }else{
+    if(help=100){
+      indirektebeleuchtung_an=true;
+      partymodus();
+      help=0;
+    }
+    help++;
   }
 
 
@@ -362,28 +351,28 @@ void loop()
 //hmi_input[1]=> Seite 2, hmi_input[2] => Button
 switch (hmi_input[1])
 {
-  case 0: //Mainpage
+  case 0x00: //Mainpage
       HMI_Input_loeschen(hmi_input);
   break;
 
 
 
-  case 1: //Licht-Konfig-page
+  case 0x01: //Licht-Konfig-page
       switch(hmi_input[2]){
         case 0x0D:
-          bt_lernen_lkPopCallback();
+          setModusActive(1);
           break;
         case 0x0F:
-          bt_relax_lkPopCallback();
+          setModusActive(2);
           break;
         case 0x0E:
-          bt_auto_lkPopCallback();
+          setModusActive(6);
           break;
         case 0x03:
-          bt_mix_lkPopCallback();
+          setModusActive(3);
           break;
         case 0x10:
-          bt_party_lkPopCallback();
+          setModusActive(4);
           break;
         case 0x0A:
           r_hauptle_lkPopCallback();
@@ -638,7 +627,7 @@ switch (hmi_input[1])
   break;
   #pragma endregion
 */
-  case 3: //Settings-page
+  case 0x03: //Settings-page
       switch (hmi_input[2])
       {
       case 0x03:
@@ -653,7 +642,7 @@ switch (hmi_input[1])
 
 
 
-  case 4: //Gestensteuerung-page
+  case 0x04: //Gestensteuerung-page
       HMI_Input_loeschen(hmi_input);
   break;
 
@@ -771,7 +760,7 @@ switch (hmi_input[1])
       break;
   #pragma endregion
 */
-  case 6: //Farbmix-page
+  case 0x06: //Farbmix-page
       switch(hmi_input[2]){
         case 0x02:
           bt_save_lsPopCallback();
@@ -896,20 +885,20 @@ boolean setModusActive(int newMod){
   //alten Modus abschalten
   switch(modus){
     case 1:
-      sendValue("l01","0");
+      sendValue("l01",0);
       //Serielle_Textausgabe("bt_lernen_lk.val=","0"); 
       break;
     case 2:
-      sendValue("l02","0");
+      sendValue("l02",0);
       break;
     case 3:
-      sendValue("l03","0");
+      sendValue("l03",0);
       break;
     case 4:
-      sendValue("l05","0");
+      sendValue("l05",0);
       break;
     case 6:
-      sendValue("l04","0");
+      sendValue("l04",0);
       break;
   }
 
@@ -968,7 +957,7 @@ void refreshColours(){
   }
 }
 
-void activateIndBel(int rot, int gruen, int blau, int hell){
+void activateIndBel(uint8_t rot, uint8_t gruen, uint8_t blau, uint8_t hell){
   strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
   strip_IndLi.setBrightness(hell);
   strip_IndLi.show();
@@ -977,7 +966,7 @@ void activateIndBel(int rot, int gruen, int blau, int hell){
   strip_IndRe.show();
 }
 
-void activateHauptBel(int rot, int gruen, int blau, int hell){
+void activateHauptBel(uint8_t rot, uint8_t gruen, uint8_t blau, uint8_t hell){
   main_light.fill(main_light.Color(rot, gruen, blau));
   main_light.setBrightness(hell);
   main_light.show();
@@ -989,7 +978,7 @@ void partymodus(){
   green=parGreen[count%14];
   bright=parBright[count%11];
   count++;
-  delay(50);
+  refreshColours();
 }
 
 int LDR_Messung()
@@ -1012,13 +1001,15 @@ void Serielle_Textausgabe(const char* textbox, const char* text)
   }
 }
 
-void sendValue(const char* object, const char* value){
+void sendValue(const char* object, uint8_t value){
+  char* buf;
+  sprintf(buf, "%02d", value);
   const char* cmd="\"";
   for(int i=0;i<=2;i++){
       Serial.print(object);
       Serial.print(".val=");
       Serial.print(cmd);
-      Serial.print(value);
+      Serial.print(buf);
       Serial.print(cmd);
       Serial.write(0xFF);
       Serial.write(0xFF);
