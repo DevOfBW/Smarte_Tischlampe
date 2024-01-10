@@ -32,6 +32,7 @@ uint8_t parBlue[13]={213, 159, 97, 43, 8, 1, 23, 69, 128, 187, 233, 255, 248};
 uint8_t parGreen[14]={2, 5, 32, 78, 134, 189, 232, 254, 251, 224, 178, 122, 67, 24};
 uint8_t parBright[11]={128, 169, 196, 202, 185, 149, 107, 71, 54, 60, 87};
 int count=0;
+int pause=0;
 
 //Speicher für den Mixmodus
 uint8_t indRed,indGreen,indBlue,indBright;
@@ -41,9 +42,11 @@ uint8_t modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
 uint8_t leuchtstaerke=0;
 bool hauptleuchte_an=false;
 bool indirektebeleuchtung_an=false;
+bool radioH=false;
+bool radioN=false;
 int durchlaufzaehler_party_farbwechsel=0;
 volatile uint8_t flankenzaehler_ein_aus=0;
-uint8_t activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben; 3 beide
+uint8_t activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben
 uint8_t red,green,blue,bright;
 //uint32_t memory;
 
@@ -73,10 +76,9 @@ int help=0;
 
 
 // Funktionen:
-//uint8_t RGB_Licht_Funktion(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, bool, bool); //(Pixel,R,G,B,Helligkeit,Modus,Hauptleuchte_an,Indirektebeleuchtung_an)
-//void Signalgeber(bool); //(An/Aus)
-//uint8_t Gestensensor(); //Gestensensor
-int LDR_Messung(); //LDR Messung zwischen 0 und 1023
+void Signalgeber(bool); //(An/Aus)
+uint8_t Gestensensor(); //Gestensensor
+uint8_t LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(const char*, const char*); //Textausgabe zum HMI
 //void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
 //void displayTime (bool); //Ausgabe der aktuellen Zeit
@@ -175,6 +177,7 @@ void bt_save_lsPopCallback(){
 
 void b_switch_lsPopCallback(){
   char text[6];
+  strcpy(text,"      ");
   activeLamp++;
   switch(activeLamp){
     case 1: 
@@ -198,11 +201,12 @@ void b_switch_lsPopCallback(){
     default: 
         hauptleuchte_an=false;
         indirektebeleuchtung_an=false;
-        strcpy(text,"Aus  ");
+        strcpy(text,"Aus");
         activeLamp=0;
         break;
   }
   Serielle_Textausgabe("p10.txt=",text);
+  sendValue("p09",0);
   refreshColours();
   //delay(10);
   sendValue("p08",bright);
@@ -226,16 +230,17 @@ void b_switch_lsPopCallback(){
 //Konfigurationsbutton
 void b_mixco_lkPopCallback(){
   setModusActive(3);
-  sendValue("l03",1);
 }
 
 void r_hauptle_lkPopCallback(){
-  hauptleuchte_an=!hauptleuchte_an;
+  radioH=!radioH;
+  hauptleuchte_an=radioH;
   refreshColours();
 }
 
 void r_indirektb_lkPopCallback(){
-  indirektebeleuchtung_an=!indirektebeleuchtung_an;
+  radioN=!radioN;
+  indirektebeleuchtung_an=radioN;
   refreshColours();
 }
 #pragma endregion
@@ -265,15 +270,15 @@ void setup()
   pinMode(PIN_summer, OUTPUT); 
 
   //Gestensensor
-  /*Serial.println("PAJ7620 sensor demo: Recognizing all 9 gestures.");
+  Serial.println("PAJ7620 sensor demo: Recognizing all 9 gestures.");
 
- if( !sensor.begin() )           // return value of 0 == success
+  if( !sensor.begin() )           // return value of 0 == success
   {
     Serial.print("PAJ7620 I2C error - halting");
   } 
 
   Serial.println("PAJ7620 init: OK");
-  Serial.println("Please input your gestures:"); */
+  Serial.println("Please input your gestures:");
 
   /*
   //RTC
@@ -310,8 +315,6 @@ void setup()
 // Main-Code-Schleife, diese Methode wird ständig wiederholt
 void loop() 
 {
-  //nexLoop(nex_listen_list);
-
   //DateTime now = rtc.now();
 
   //HMI input bitstream lesen
@@ -338,25 +341,28 @@ switch (hmi_input[1])
 
   case 0x01: //Licht-Konfig-page
       switch(hmi_input[2]){
-        case 0x0D:
+        case 0x0B://Lernen-Button
           setModusActive(1);
           break;
-        case 0x0F:
+        case 0x0D://Relax-Button
           setModusActive(2);
           break;
-        case 0x0E:
+        case 0x0C://Automatik-Button
           setModusActive(6);
           break;
-        case 0x03:
+        case 0x0F://Farbenmix-Button
           setModusActive(3);
           break;
-        case 0x10:
+        case 0x0E://Party-Button
           setModusActive(4);
           break;
-        case 0x0A:
+        case 0x10://Licht-Konfig
+          b_mixco_lkPopCallback();
+          break;
+        case 0x09://Hauptlicht an?
           r_hauptle_lkPopCallback();
           break;
-        case 0x0B:
+        case 0x0A://Nebenlicht an?
           r_indirektb_lkPopCallback();
           break;
       }
@@ -572,7 +578,7 @@ switch (hmi_input[1])
               } 
             break;
 
-          case 0x2F: //Alarm 1 Ein/Aus
+          case 0x2D: //Alarm 1 Ein/Aus
               if(alarm1_ein_memory==true)
               {
                 rtc.clearAlarm(1);
@@ -584,7 +590,7 @@ switch (hmi_input[1])
                 Serial.println("Alarm_1_eingeschalten");
               } 
             break;
-          case 0x30: //Alarm 2 Ein/Aus
+          case 0x2E: //Alarm 2 Ein/Aus
               if(alarm2_ein_memory==true)
               {
                 rtc.clearAlarm(1);
@@ -815,7 +821,24 @@ Serial.println(alarm1_ein_memory);
 }
 anzeige_zeit++;
 */
-  
+  //Wurde eine Geste erkannt
+  Gestensensor();
+
+  /*
+  if(modus==6){//Lichtabhängige Steuerung
+    pause++;
+    if(pause==5000){
+      pause=0;
+      bright=LDR_Messung();
+    }
+  }else if(modus==4){
+    pause++;
+    if(pause==5000){
+      pause=0;
+      partymodus();
+    }
+  }
+  */
 }
 
 void HMI_Input_loeschen(char* HMI_Input_array)
@@ -877,7 +900,6 @@ boolean setModusActive(int newMod){
   switch(modus){
     case 1:
       sendValue("l01",0);
-      //Serielle_Textausgabe("l01.val=","0"); 
       break;
     case 2:
       sendValue("l02",0);
@@ -917,14 +939,15 @@ boolean setModusActive(int newMod){
       break;
     case 3: //Farben mix
       Serielle_Textausgabe("l06.txt=","Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-      activateHauptBel(mainRed,mainGreen,mainBlue,mainBright);
-      activateIndBel(indRed, indGreen, indBlue, indBright);
+      refreshColours();
+      //activateHauptBel(mainRed,mainGreen,mainBlue,mainBright);
+      //activateIndBel(indRed, indGreen, indBlue, indBright);
       break;
     case 6: //Lichtabhängige Lichtansteuerung (Automatik)
       red=255;
-      green=0;
-      blue=0;
-      bright=150;
+      green=255;
+      blue=255;
+      bright=LDR_Messung();
       Serielle_Textausgabe("l06.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       refreshColours();
       break;
@@ -936,16 +959,30 @@ boolean setModusActive(int newMod){
 }
 
 void refreshColours(){
-  if(indirektebeleuchtung_an){
-    activateIndBel(red, green, blue, bright);
+  if(modus!=3){
+    if(indirektebeleuchtung_an){
+      activateIndBel(red, green, blue, bright);
+    }else{
+     activateIndBel(0,0,0,0);
+    }
+    if(hauptleuchte_an){
+      activateHauptBel(red, green, blue, bright);
+    }else{
+      activateHauptBel(0,0,0,0);
+    }
   }else{
-    activateIndBel(0,0,0,0);
+    if(indirektebeleuchtung_an){
+      activateIndBel(indRed, indGreen, indBlue, indBright);
+    }else{
+      activateIndBel(0,0,0,0);
+    }
+    if(hauptleuchte_an){
+      activateHauptBel(mainRed, mainGreen, mainBlue, mainBright);
+    }else{
+      activateHauptBel(0,0,0,0);
+    }
   }
-  if(hauptleuchte_an){
-    activateHauptBel(red, green, blue, bright);
-  }else{
-    activateHauptBel(0,0,0,0);
-  }
+  
 }
 
 void activateIndBel(uint8_t rot, uint8_t gruen, uint8_t blau, uint8_t hell){
@@ -972,16 +1009,19 @@ void partymodus(){
   refreshColours();
 }
 
-int LDR_Messung()
+uint8_t LDR_Messung()
 {
-  helligkeit = analogRead(0);
-  return helligkeit;
+  uint8_t safe;
+  helligkeit = analogRead(0); //Werte zwischen 0 und 1024
+  helligkeit=(helligkeit>800)?800:helligkeit;
+  safe=255-helligkeit/4;
+  return safe;
 }
 
 void Serielle_Textausgabe(const char* textbox, const char* text)
 {
   const char* cmd="\"";
-  for(int i=0;i<=2;i++){
+  for(int i=0;i<2;i++){
       Serial.print(textbox);
       Serial.print(cmd);
       Serial.print(text);
@@ -995,7 +1035,7 @@ void Serielle_Textausgabe(const char* textbox, const char* text)
 void sendValue(const char* object, uint8_t value){
   char buf[3];
   sprintf(buf, "%02d", value);
-  for(int i=0;i<=2;i++){
+  for(int i=0;i<2;i++){
       Serial.print(object);
       Serial.print(".val=");
       Serial.print(buf);
@@ -1005,65 +1045,103 @@ void sendValue(const char* object, uint8_t value){
   }
 }
 
-/*
+
 uint8_t Gestensensor()
 {
-Gesture gesture;                  // Gesture is an enum type from RevEng_PAJ7620.h
+  Gesture gesture;                  // Gesture is an enum type from RevEng_PAJ7620.h
   gesture = sensor.readGesture();   // Read back current gesture (if any) of type Gesture
 
   switch (gesture)
   {
     case GES_FORWARD:
       {
-        Serial.println("GES_FORWARD");
+        //deactivate Alarm
+
         break;
       }
 
     case GES_BACKWARD:
       {
-        Serial.println("GES_BACKWARD");
+        //empty
         break;
       }
 
     case GES_LEFT:
       {
-        Serial.println("GES_LEFT");
+        //empty
         break;
       }
 
     case GES_RIGHT:
       {
-        Serial.println("GES_RIGHT");
+        //empty
         break;
       }
 
     case GES_UP:
       {
-        Serial.println("GES_UP");
+        //heller
+        if(modus==3){
+          mainBright=(mainBright>205)?255:mainBright+50;
+          indBright=(indBright>205)?255:indBright+50;
+        }else{
+          bright=bright + 50;
+          if(bright > 255){
+            bright=255;
+          }
+        }
+        refreshColours();
         break;
       }
 
     case GES_DOWN:
       {
-        Serial.println("GES_DOWN");
+        //dunkler
+        if(modus==3){
+          if(mainBright < 60){
+            mainBright=10;
+          }else{
+            mainBright = mainBright -50;
+          }
+          if(indBright < 60){
+            indBright=10;
+          }else{
+            indBright = indBright -50;
+          }
+        }else{
+          if(bright < 60){
+            bright=10;
+          }else{
+            bright = bright -50;
+          }
+        }
+        refreshColours();
         break;
       }
 
     case GES_CLOCKWISE:
       {
-        Serial.println("GES_CLOCKWISE");
+        //empty
         break;
       }
 
     case GES_ANTICLOCKWISE:
       {
-        Serial.println("GES_ANTICLOCKWISE");
+        //empty
         break;
       }
 
     case GES_WAVE:
       {
-        Serial.println("GES_WAVE");
+        //Licht toggeln
+          if(hauptleuchte_an||indirektebeleuchtung_an){
+            hauptleuchte_an=false;
+            indirektebeleuchtung_an=false;
+          }else{
+            hauptleuchte_an=true;
+            indirektebeleuchtung_an=true;
+          }
+          refreshColours();
         break;
       }
 
@@ -1086,131 +1164,3 @@ void Signalgeber(bool ton_an)
     noTone(4);
   }
 }
-
-uint8_t RGB_Licht_Funktion(uint8_t pixelnummer, uint8_t rot, uint8_t gruen, uint8_t blau, uint8_t helligkeit, uint8_t modi, bool hauptleuchte, bool indirekt)
-{
-  if(modi==1)  //Modi 1 = Arbeitslicht (ca.6000K) an + indirekte Beleuchtung in gleicher Farbe
-  {
-    strip_IndLi.setBrightness(helligkeit);
-    strip_IndRe.setBrightness(helligkeit);
-    main_light.setBrightness(helligkeit);
-   
-    if(indirekt==true && hauptleuchte==true)
-    {
-      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
-      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      main_light.fill(main_light.Color(rot, gruen, blau));
-      main_light.show();
-      strip_IndLi.show();
-      strip_IndRe.show();
-    }
-    if(indirekt==true)
-    {
-      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
-      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      strip_IndLi.show();
-      strip_IndRe.show();
-    }
-    else if(hauptleuchte==true)
-    {
-      main_light.fill(main_light.Color(rot, gruen, blau));
-      main_light.show();
-    }
-  }
-  else if (modi==2)  //Modi 2 = Entspannungslicht (ca.4000K) an + indirekte Beleuchtung in gleicher Farbe
-  {
-    strip_IndLi.setBrightness(helligkeit);
-    strip_IndRe.setBrightness(helligkeit);
-    main_light.setBrightness(helligkeit);
-
-    if(indirekt==true && hauptleuchte==true)
-    {
-      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
-      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      main_light.fill(main_light.Color(rot, gruen, blau));
-      main_light.show();
-      strip_IndLi.show();
-      strip_IndRe.show();
-    }
-    if(indirekt==true)
-    {
-      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
-      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      strip_IndLi.show();
-      strip_IndRe.show();
-    }
-    else if(hauptleuchte==true)
-    {
-      main_light.fill(main_light.Color(rot, gruen, blau));
-      main_light.show();
-    }
-  }
-  else if (modi==3)  //Modi 3 = Farbe selber mixen
-  {
-    
-
-  }
-  else if (modi==4)  //Modi 4 = Partylicht, alle RGB wechseln die Farben schnell
-  {
-    strip_IndLi.setBrightness(helligkeit);
-    strip_IndRe.setBrightness(helligkeit);
-    main_light.setBrightness(helligkeit);
-    if(indirekt==true && hauptleuchte==true)
-    {
-      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
-      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      main_light.fill(main_light.Color(rot, gruen, blau));
-      main_light.show();
-      strip_IndLi.show();
-      strip_IndRe.show();
-    }
-    if(indirekt==true)
-    {
-      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
-      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      strip_IndLi.show();
-      strip_IndRe.show();
-    }
-    else if(hauptleuchte==true)
-    {
-      main_light.fill(main_light.Color(rot, gruen, blau));
-      main_light.show();
-    }
-  }
-  else if (modi==5)  //Modi 3 = Neopixel einzeln ansteuern
-  {
-    strip_IndLi.setPixelColor(pixelnummer, rot, gruen, blau);
-    strip_IndLi.show(); 
-  }
-  else if (modi==6) //Modi 6 = Helligkeitsabhänging die LED-Lichtstärke steuern
-  {
-    strip_IndLi.setBrightness(helligkeit);
-    strip_IndRe.setBrightness(helligkeit);
-    main_light.setBrightness(helligkeit);
-
-    if(indirekt==true && hauptleuchte==true)
-    {
-      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
-      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      main_light.fill(main_light.Color(rot, gruen, blau));
-      main_light.show();
-      strip_IndLi.show();
-      strip_IndRe.show();
-    }
-    if(indirekt==true)
-    {
-      strip_IndLi.fill(strip_IndLi.Color(rot, gruen, blau));
-      strip_IndRe.fill(strip_IndRe.Color(rot, gruen, blau));
-      strip_IndLi.show();
-      strip_IndRe.show();
-    }
-    else if(hauptleuchte==true)
-    {
-      main_light.fill(main_light.Color(rot, gruen, blau));
-      main_light.show();
-    }
-  } 
-  return 1;
-}
-
-*/
