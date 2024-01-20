@@ -9,7 +9,7 @@
 #include "Adafruit_NeoPixel.h"  //Indirekte Beleuchtung
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
 #include "RevEng_PAJ7620.h"  //Gestensensor
-//#include "RTClib.h"  //Realtime-Clock
+#include "RTClib.h"  //Realtime-Clock
 
 // Variablen:
 #define LED_PIN_IndLi    6    // LED Pin für die indirekte Beleuchtung auf der linken Seite an Pin 6
@@ -33,6 +33,7 @@ uint8_t parGreen[14]={2, 5, 32, 78, 134, 189, 232, 254, 251, 224, 178, 122, 67, 
 uint8_t parBright[11]={128, 169, 196, 202, 185, 149, 107, 71, 54, 60, 87};
 int count=0;
 int pause=0;
+uint8_t page=0; //0 Main-Seite
 
 //Speicher für den Mixmodus
 uint8_t indRed,indGreen,indBlue,indBright;
@@ -48,7 +49,6 @@ int durchlaufzaehler_party_farbwechsel=0;
 volatile uint8_t flankenzaehler_ein_aus=0;
 uint8_t activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben
 uint8_t red,green,blue,bright;
-//uint32_t memory;
 
 //TODO: Können die Bool-Werte nicht einfacher in zwei Integern gespeichert werden? Wäre auch leichter zu verstehen.
 char hmi_input [7]={};    //Es werden 4 char benötigt, da wir 4 Datensätze pro Button übertragen, um diesen zu identifizieren
@@ -80,8 +80,8 @@ void Signalgeber(bool); //(An/Aus)
 uint8_t Gestensensor(); //Gestensensor
 uint8_t LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(const char*, const char*); //Textausgabe zum HMI
-//void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
-//void displayTime (bool); //Ausgabe der aktuellen Zeit
+void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
+void displayTime (bool); //Ausgabe der aktuellen Zeit
 void HMI_Input_loeschen(char*);
 boolean setModusActive(int);
 void partymodus();
@@ -245,7 +245,7 @@ void r_indirektb_lkPopCallback(){
 }
 #pragma endregion
 //Wecker + Uhrzeit
-//RTC_DS3231 rtc;
+RTC_DS3231 rtc;
 char wochentage[7][3] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"}; 
 
@@ -270,6 +270,7 @@ void setup()
   pinMode(PIN_summer, OUTPUT); 
 
   //Gestensensor
+  /*
   Serial.println("PAJ7620 sensor demo: Recognizing all 9 gestures.");
 
   if( !sensor.begin() )           // return value of 0 == success
@@ -279,8 +280,8 @@ void setup()
 
   Serial.println("PAJ7620 init: OK");
   Serial.println("Please input your gestures:");
-
-  /*
+*/
+  
   //RTC
   if (! rtc.begin()) {
     //TODO: Ausgabe der Fehlermeldung auf Touchdisplay
@@ -307,7 +308,7 @@ void setup()
   rtc.clearAlarm(1);
   rtc.clearAlarm(2);  
   rtc.writeSqwPinMode(DS3231_OFF);
-  */
+  
 
 }
 
@@ -315,7 +316,7 @@ void setup()
 // Main-Code-Schleife, diese Methode wird ständig wiederholt
 void loop() 
 {
-  //DateTime now = rtc.now();
+  DateTime now = rtc.now();
 
   //HMI input bitstream lesen
   if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
@@ -334,6 +335,9 @@ void loop()
 switch (hmi_input[1])
 {
   case 0x00: //Mainpage
+      if(hmi_input[2]==1||hmi_input[2]==2||hmi_input[2]==3){
+        page=hmi_input[2];
+      }
       HMI_Input_loeschen(hmi_input);
   break;
 
@@ -341,6 +345,9 @@ switch (hmi_input[1])
 
   case 0x01: //Licht-Konfig-page
       switch(hmi_input[2]){
+        case 0x02://Home-Button
+          page=0;
+          break;
         case 0x0B://Lernen-Button
           setModusActive(1);
           break;
@@ -370,7 +377,7 @@ switch (hmi_input[1])
   break;
 
 
-/*
+
   case 2: //Wecker-page
   #pragma region Wecker
       char alarm1_stunde[4];
@@ -380,6 +387,9 @@ switch (hmi_input[1])
       
         switch (hmi_input[2])
         {
+          case 0x02:  //Home-Button
+            page=0;
+            break;
           case 0x14: //Alarm 1Stunde verringern(1, 0, 23,...)
             alarm1_stunde_memory--;
             if(alarm1_stunde_memory<0){
@@ -611,10 +621,13 @@ switch (hmi_input[1])
         HMI_Input_loeschen(hmi_input); 
   break;
   #pragma endregion
-*/
+
   case 0x03: //Settings-page
       switch (hmi_input[2])
       {
+        case 0x02: //Home-Button
+          page=0;
+          break;
       case 0x03:
         //displayTime(true);
         break;
@@ -628,11 +641,14 @@ switch (hmi_input[1])
 
 
   case 0x04: //Gestensteuerung-page
+      if(hmi_input[2]==0x03){
+        page=0;
+      }
       HMI_Input_loeschen(hmi_input);
   break;
 
 
-/*
+
   case 5: //Uhr-Konfig-page
   #pragma region UhrKonfig
       //DateTime now = rtc.now();
@@ -649,6 +665,9 @@ switch (hmi_input[1])
 
       switch (hmi_input[2])
       {
+        case 0x02: //Home-Button
+          page=0;
+          break;
       case 0x0C: //Tag verringern(1, 31, 30,...)
         tag_memory--;
         if(tag_memory<1){
@@ -744,7 +763,7 @@ switch (hmi_input[1])
       HMI_Input_loeschen(hmi_input);
       break;
   #pragma endregion
-*/
+
   case 0x06: //Farbmix-page
       switch(hmi_input[2]){
         case 0x02:
@@ -765,15 +784,30 @@ switch (hmi_input[1])
         case 0x08:
           p07PopCallback();
           break;
+        case 0x10: //Home-Button
+          page=0;
+          break;
       }
       HMI_Input_loeschen(hmi_input);
+  break;
+
+  case 7:
+    if(hmi_input[2]==3){
+      page=0;
+    }
+  break;
+
+  case 8:
+    if(hmi_input[2]==1){
+      page=0;
+    }
   break;
 
 default:
   break;
 }
 
-/*
+
 //Wecker (Alarm 1)
 if((now.dayOfTheWeek()==1 && montag_alarm1_memory==true && alarm1_ein_memory==true) || 
     (now.dayOfTheWeek()==2 && dienstag_alarm1_memory==true && alarm1_ein_memory==true) || 
@@ -807,22 +841,26 @@ if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==tr
 
 
 //TODO: muss wieder entfertn werden wnn wieder mit dem interupt gearbeitet wird
+
+
 static uint8_t anzeige_zeit;
 if(anzeige_zeit==150){
-displayTime (false);
+  if(page==0){
+    displayTime (false);
+  }
 
-if(rtc.alarmFired(1) && alarm1_ein_memory==true)
-{
-  Signalgeber(true);
-}
+  if(rtc.alarmFired(1) && alarm1_ein_memory==true)
+  {
+    Signalgeber(true);
+  }
 
-Serial.println("");
-Serial.println(alarm1_ein_memory);
+  Serial.println("");
+  Serial.println(alarm1_ein_memory);
 }
 anzeige_zeit++;
-*/
+
   //Wurde eine Geste erkannt
-  Gestensensor();
+  //Gestensensor();
 
   /*
   if(modus==6){//Lichtabhängige Steuerung
@@ -849,13 +887,13 @@ void HMI_Input_loeschen(char* HMI_Input_array)
       }
 }
 
-/*
+
 //Interrupt Service Routine - This routine is performed when a falling edge on the 1Hz SQW clock from the RTC is detected
 void ISR_RTC () {
     flanke_rtc_sqw = false; //A falling edge was detected on the SQWinput pin.  Now set EDGE equal to 0.
 }
-*/
-/*
+
+
 void displayTime (bool uhr_einstellen) {
   //TODO: übergabeparameter kann entfernt werden, kann immer angezeigt werden in den feldern
   DateTime now = rtc.now();
@@ -891,7 +929,7 @@ void displayTime (bool uhr_einstellen) {
 
   
 }
-*/
+
 boolean setModusActive(int newMod){
   if(modus==newMod){
     return 0;
