@@ -113,27 +113,8 @@ NexSlider p01 = NexSlider(6, 1, "p01"); //Slider initialisieren rot; Touch-Relea
 NexSlider p03 = NexSlider(6, 4, "p03"); //Slider gruen
 NexSlider p05 = NexSlider(6, 6, "p05"); //Slider blau
 NexSlider p07 = NexSlider(6, 8, "p07");  //Slider helligkeit
-/*
-NexDSButton bt_save_ls = NexDSButton(7, 2, "bt_save_ls"); //Button Licht an/aus
-NexButton b_switch_ls = NexButton(7,15,"b_switch_ls");  //Button um die Lampen umzuschalten
-NexDSButton bt_lernen_lk = NexDSButton(1,9,"bt_lernen_lk");
-NexDSButton bt_relax_lk = NexDSButton(1,11,"bt_relax_lk");
-NexDSButton bt_auto_lk = NexDSButton(1,10,"bt_auto_lk");
-NexDSButton bt_party_lk = NexDSButton(1,12,"bt_party_lk");
-NexDSButton bt_mix_lk = NexDSButton(1,13,"bt_mix_lk");
-NexRadio r_hauptle_lk = NexRadio(1,7,"r_hauptle_lk");
-NexRadio r_indirektb_lk = NexRadio(1,8,"r_indirektb_lk");
-NexButton b_mixco_lk = NexButton(1,14,"b_mixco_lk");
-*/
 
 #pragma region DisplayFunctions
-/*
-bool sendCmdToDisplay(String command){
-  Serial.print(command);
-  Serial.write(0xFF);
-  Serial.write(0xFF);
-  Serial.write(0xFF);
-}*/
 
 void p01PopCallback(){
   p01.getValue(&memory);
@@ -270,17 +251,16 @@ void setup()
   pinMode(PIN_summer, OUTPUT); 
 
   //Gestensensor
-  /*
+  
   Serial.println("PAJ7620 sensor demo: Recognizing all 9 gestures.");
 
   if( !sensor.begin() )           // return value of 0 == success
   {
-    Serial.print("PAJ7620 I2C error - halting");
-  } 
-
-  Serial.println("PAJ7620 init: OK");
-  Serial.println("Please input your gestures:");
-*/
+    Serial.println("PAJ7620 I2C error - halting");
+  }else{
+    Serial.println("PAJ7620 init: OK");
+    Serial.println("Please input your gestures:");
+  }
   
   //RTC
   if (! rtc.begin()) {
@@ -288,6 +268,8 @@ void setup()
     Serial.println("RTC nicht gefunden");
     Serial.flush();
     abort();
+  }else{
+    Serial.println("RTC initialisiert");
   }
 
    rtc.disable32K();
@@ -843,40 +825,40 @@ if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==tr
 //TODO: muss wieder entfertn werden wnn wieder mit dem interupt gearbeitet wird
 
 
-static uint8_t anzeige_zeit;
-if(anzeige_zeit==150){
-  if(page==0){
-    displayTime (false);
-  }
+  static uint8_t anzeige_zeit;
+  if(anzeige_zeit==150){
+    if(page==0){
+      displayTime (false);
+    }
 
-  if(rtc.alarmFired(1) && alarm1_ein_memory==true)
-  {
-    Signalgeber(true);
-  }
+    if(rtc.alarmFired(1) && alarm1_ein_memory==true)
+    {
+      Signalgeber(true);
+    }
 
-  Serial.println("");
-  Serial.println(alarm1_ein_memory);
-}
-anzeige_zeit++;
+    Serial.println("");
+    Serial.println(alarm1_ein_memory);
+  }
+  anzeige_zeit++;
 
   //Wurde eine Geste erkannt
-  //Gestensensor();
+  Gestensensor();
 
-  /*
+  static uint8_t pause;
   if(modus==6){//Lichtabhängige Steuerung
-    pause++;
-    if(pause==5000){
-      pause=0;
+    if(pause==200){
+      //pause=0;
       bright=LDR_Messung();
+      refreshColours();
     }
-  }else if(modus==4){
     pause++;
-    if(pause==5000){
-      pause=0;
+  }else if(modus==4){
+    if(pause==200){
+      //pause=0;
       partymodus();
     }
+    pause++;
   }
-  */
 }
 
 void HMI_Input_loeschen(char* HMI_Input_array)
@@ -1051,9 +1033,11 @@ uint8_t LDR_Messung()
 {
   uint8_t safe;
   helligkeit = analogRead(0); //Werte zwischen 0 und 1024
-  helligkeit=(helligkeit>800)?800:helligkeit;
+  //Serial.println("Helligkeit: "+helligkeit);
+  //helligkeit=(helligkeit>800)?800:helligkeit;
   safe=255-helligkeit/4;
-  return safe;
+  //Serial.println("Safe: "+safe);
+  return helligkeit;
 }
 
 void Serielle_Textausgabe(const char* textbox, const char* text)
