@@ -24,7 +24,7 @@
 #define PIN_SQW 2
 //const byte PIN_SQW = 2; //Interruptpin RTC -> SQW pin is used to monitor the SQW 1Hz output from the DS3231
 bool flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
-uint8_t helligkeit; //Wird benötigt für die LDR-Messung
+uint16_t helligkeit; //Wird benötigt für die LDR-Messung
 bool flanke_Licht_ein = false;
 uint8_t modNeu=0;
 uint8_t parRed[12]={128, 192, 239, 255, 239, 192, 128, 64, 17, 0, 17, 64};
@@ -73,6 +73,7 @@ int8_t alarm1_stunde_memory;
 int8_t alarm2_minute_memory;
 int8_t alarm2_stunde_memory;
 int help=0;
+bool activAlarm=false;
 
 
 // Funktionen:
@@ -80,6 +81,7 @@ void Signalgeber(bool); //(An/Aus)
 uint8_t Gestensensor(); //Gestensensor
 uint8_t LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(const char*, const char*); //Textausgabe zum HMI
+void Serielle_Textausgabe2(const char*);
 void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
 void displayTime (bool); //Ausgabe der aktuellen Zeit
 void HMI_Input_loeschen(char*);
@@ -252,14 +254,14 @@ void setup()
 
   //Gestensensor
   
-  Serial.println("PAJ7620 sensor demo: Recognizing all 9 gestures.");
+  Serial.println("Recognizing all 9 gestures");
 
   if( !sensor.begin() )           // return value of 0 == success
   {
     Serial.println("PAJ7620 I2C error - halting");
   }else{
-    Serial.println("PAJ7620 init: OK");
-    Serial.println("Please input your gestures:");
+    Serial.println("PAJ7620 init OK");
+    //Serial.println("Please input gestures");
   }
   
   //RTC
@@ -317,8 +319,16 @@ void loop()
 switch (hmi_input[1])
 {
   case 0x00: //Mainpage
-      if(hmi_input[2]==1||hmi_input[2]==2||hmi_input[2]==3){
-        page=hmi_input[2];
+      switch(hmi_input[2]){
+        case 1:
+          page = 1;
+          break;
+        case 2:
+          page = 2;
+          break;
+        case 3:
+          page = 3;
+          break;
       }
       HMI_Input_loeschen(hmi_input);
   break;
@@ -428,7 +438,7 @@ switch (hmi_input[1])
               if(mittwoch_alarm1_memory==true)
               {
                 mittwoch_alarm1_memory=false;
-              } else if (mittwoch_alarm1_memory==false)
+              } else //if (mittwoch_alarm1_memory==false)
               {
                 mittwoch_alarm1_memory=true;
               } 
@@ -472,7 +482,7 @@ switch (hmi_input[1])
               } 
             break;
 
-          case 0x1C: //Alarm 2Stunde verringern(1, 0, 23,...)
+          case 0x1C: //Alarm 2 Stunde verringern(1, 0, 23,...)
             alarm2_stunde_memory--;
             if(alarm2_stunde_memory<0){
             alarm2_stunde_memory=23;
@@ -575,11 +585,12 @@ switch (hmi_input[1])
               {
                 rtc.clearAlarm(1);
                 alarm1_ein_memory=false;
-                Serial.println("Alarm_1_ausgeschaltet");
-              } else if (alarm1_ein_memory==false)
+                Serial.println("Alarm1 aus");
+              } else //if (alarm1_ein_memory==false)
               {
+                rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day);
                 alarm1_ein_memory=true;
-                Serial.println("Alarm_1_eingeschalten");
+                Serial.println("Alarm1 ein");
               } 
             break;
           case 0x2E: //Alarm 2 Ein/Aus
@@ -587,11 +598,12 @@ switch (hmi_input[1])
               {
                 rtc.clearAlarm(1);
                 alarm2_ein_memory=false;
-                Serial.println("Alarm_2_ausgeschaltet");
-              } else if (alarm2_ein_memory==false)
+                Serial.println("Alarm2 aus");
+              } else //if (alarm2_ein_memory==false)
               {
+                rtc.setAlarm2(DateTime(now.year(), now.month(), now.day(), alarm2_stunde_memory, alarm2_minute_memory, 0), DS3231_A2_Day);
                 alarm2_ein_memory=true;
-                Serial.println("Alarm_2_eingeschalten");
+                Serial.println("Alarm2 ein");
               } 
             break;
           case 0x03: //save
@@ -610,12 +622,12 @@ switch (hmi_input[1])
         case 0x02: //Home-Button
           page=0;
           break;
-      case 0x03:
-        //displayTime(true);
-        break;
+        case 0x03:
+          displayTime(true);
+          break;
       
-      default:
-        break;
+        default:
+          break;
       }
       HMI_Input_loeschen(hmi_input);
   break;
@@ -781,7 +793,11 @@ switch (hmi_input[1])
 
   case 8:
     if(hmi_input[2]==1){
+      Signalgeber(false);
       page=0;
+      rtc.clearAlarm(1);
+      rtc.clearAlarm(2);
+      activAlarm=false;
     }
   break;
 
@@ -799,7 +815,7 @@ if((now.dayOfTheWeek()==1 && montag_alarm1_memory==true && alarm1_ein_memory==tr
     (now.dayOfTheWeek()==6 && samstag_alarm1_memory==true && alarm1_ein_memory==true) ||
     (now.dayOfTheWeek()==0 && sonntag_alarm1_memory==true && alarm1_ein_memory==true))
     {
-      rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day); //Alarm when day (day of week), hours,inutes and seconds match 
+      rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day); //Alarm when day (day of week), hours,minutes and seconds match 
     }else{
       rtc.clearAlarm(1);  //Alarm ausschalten
       noTone(4);  //Signalton ausschalten
@@ -829,20 +845,35 @@ if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==tr
   if(anzeige_zeit==150){
     if(page==0){
       displayTime (false);
+      Serial.println("");
     }
-
-    if(rtc.alarmFired(1) && alarm1_ein_memory==true)
-    {
-      Signalgeber(true);
-    }
-
-    Serial.println("");
-    Serial.println(alarm1_ein_memory);
+    //Serial.println(alarm1_ein_memory);
   }
   anzeige_zeit++;
 
+  if(rtc.alarmFired(1) && alarm1_ein_memory==true)
+  {
+    if(!activAlarm){
+      activAlarm=true;
+      Serielle_Textausgabe2("page 8");
+    }
+    Signalgeber(true);
+    Serial.println("Alarm1");
+  }
+  if(rtc.alarmFired(2) && alarm2_ein_memory==true)
+  {
+    if(!activAlarm){
+      activAlarm=true;
+      Serielle_Textausgabe2("page 8");
+    }
+    Signalgeber(true);
+    Serial.println("Alarm2");
+  }
+
   //Wurde eine Geste erkannt
-  Gestensensor();
+  if(Gestensensor()==1){
+    delay(20);  //Damit nicht direkt die nächste Geste erkannt wird(will hoch streichen und runter wird auch erkannt)
+  }
 
   static uint8_t pause;
   if(modus==6){//Lichtabhängige Steuerung
@@ -1033,10 +1064,14 @@ uint8_t LDR_Messung()
 {
   uint8_t safe;
   helligkeit = analogRead(0); //Werte zwischen 0 und 1024
-  //Serial.println("Helligkeit: "+helligkeit);
+  Serial.print("Hell "+helligkeit);
+  delay(20);
   //helligkeit=(helligkeit>800)?800:helligkeit;
   safe=255-helligkeit/4;
+  char val[2];
   //Serial.println("Safe: "+safe);
+  sprintf(val, "%02d", helligkeit);
+  Serielle_Textausgabe("l06.txt=",val);
   return helligkeit;
 }
 
@@ -1051,6 +1086,16 @@ void Serielle_Textausgabe(const char* textbox, const char* text)
       Serial.write(0xFF);
       Serial.write(0xFF);
       Serial.write(0xFF);
+  }
+}
+
+void Serielle_Textausgabe2(const char* textbox)
+{
+  for(int i=0;i<2;i++){
+    Serial.print(textbox);
+    Serial.write(0xFF);
+    Serial.write(0xFF);
+    Serial.write(0xFF);
   }
 }
 
@@ -1078,7 +1123,8 @@ uint8_t Gestensensor()
     case GES_FORWARD:
       {
         //deactivate Alarm
-
+          Signalgeber(false);
+          Serielle_Textausgabe2("page 0");
         break;
       }
 
@@ -1096,7 +1142,16 @@ uint8_t Gestensensor()
 
     case GES_RIGHT:
       {
-        //empty
+         //Licht toggeln
+          if(hauptleuchte_an||indirektebeleuchtung_an){
+            hauptleuchte_an=false;
+            indirektebeleuchtung_an=false;
+          }else{
+            hauptleuchte_an=true;
+            indirektebeleuchtung_an=true;
+          }
+          refreshColours();
+          return 1;
         break;
       }
 
@@ -1113,6 +1168,7 @@ uint8_t Gestensensor()
           }
         }
         refreshColours();
+        return 1;
         break;
       }
 
@@ -1138,6 +1194,7 @@ uint8_t Gestensensor()
           }
         }
         refreshColours();
+        return 1;
         break;
       }
 
@@ -1155,15 +1212,6 @@ uint8_t Gestensensor()
 
     case GES_WAVE:
       {
-        //Licht toggeln
-          if(hauptleuchte_an||indirektebeleuchtung_an){
-            hauptleuchte_an=false;
-            indirektebeleuchtung_an=false;
-          }else{
-            hauptleuchte_an=true;
-            indirektebeleuchtung_an=true;
-          }
-          refreshColours();
         break;
       }
 
@@ -1172,7 +1220,7 @@ uint8_t Gestensensor()
         break;
       }
   }
-  return 1;
+  return 0;
 }
 
 void Signalgeber(bool ton_an)
