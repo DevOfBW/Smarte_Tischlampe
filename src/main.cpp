@@ -34,6 +34,7 @@ uint8_t parBright[11]={128, 169, 196, 202, 185, 149, 107, 71, 54, 60, 87};
 int count=0;
 int pause=0;
 uint8_t page=0; //0 Main-Seite
+bool gestureActive=true; //Zeigt ob der Gestensensor Eingaben verarbeiten kann
 
 //Speicher für den Mixmodus
 uint8_t indRed,indGreen,indBlue,indBright;
@@ -329,6 +330,18 @@ switch (hmi_input[1])
         case 3:
           page = 3;
           break;
+        case 5:
+          //Licht toggeln
+          if(hauptleuchte_an||indirektebeleuchtung_an){
+            hauptleuchte_an=false;
+            indirektebeleuchtung_an=false;
+          }else{
+            hauptleuchte_an=true;
+            indirektebeleuchtung_an=true;
+          }
+          refreshColours();
+          break;
+        
       }
       HMI_Input_loeschen(hmi_input);
   break;
@@ -606,11 +619,8 @@ switch (hmi_input[1])
                 Serial.println("Alarm2 ein");
               } 
             break;
-          case 0x03: //save
+          default:
             break;
-
-            default:
-              break;
         }
         HMI_Input_loeschen(hmi_input); 
   break;
@@ -622,10 +632,13 @@ switch (hmi_input[1])
         case 0x02: //Home-Button
           page=0;
           break;
-        case 0x03:
+        case 0x03: //Uhr Einstellungen
           displayTime(true);
           break;
-      
+        case 0x06:  //Gestensensor aktiv?
+          gestureActive=!gestureActive;
+
+          break;
         default:
           break;
       }
@@ -927,19 +940,18 @@ void displayTime (bool uhr_einstellen) {
     Serielle_Textausgabe("u11.txt=",jahr);
     Serielle_Textausgabe("u14.txt=",stunde);
     Serielle_Textausgabe("u18.txt=",minute);
+  }else{
+    // Verkettung der Char-Arrays um Datum und die komplette Uhrzeit darzustellen
+    sprintf(tag, "%s.%s.%s", tag, monat, jahr);
+    sprintf(stunde, "%s:%s:%s", stunde, minute, sekunde);
+
+    Serielle_Textausgabe("m01.txt=", w_tag);
+    Serielle_Textausgabe("m02.txt=", tag);
+    Serielle_Textausgabe("m03.txt=", stunde);
+    dtostrf(rtc.getTemperature(), 6, 2, temperatur);
+    sprintf(temperatur, "%s Grad C", temperatur);
+    Serielle_Textausgabe("m04.txt=", temperatur);
   }
-
-  // Verkettung der Char-Arrays um Datum und die komplette Uhrzeit darzustellen
-  sprintf(tag, "%s.%s.%s", tag, monat, jahr);
-  sprintf(stunde, "%s:%s:%s", stunde, minute, sekunde);
-
-  Serielle_Textausgabe("m01.txt=", w_tag);
-  Serielle_Textausgabe("m02.txt=", tag);
-  Serielle_Textausgabe("m03.txt=", stunde);
-  dtostrf(rtc.getTemperature(), 6, 2, temperatur);
-  sprintf(temperatur, "%s Grad C", temperatur);
-  Serielle_Textausgabe("m04.txt=", temperatur);
-
   
 }
 
@@ -1064,10 +1076,11 @@ uint8_t LDR_Messung()
 {
   char val[2];
   helligkeit = analogRead(0); //Werte zwischen 0 und 1024
-  Serial.print("Hell "+helligkeit);
+  //ikkSerial.print("Hell "+helligkeit);
   sprintf(val, "%02d", helligkeit);
   Serielle_Textausgabe("l06.txt=",val);
   //helligkeit=(helligkeit>800)?800:helligkeit;
+  //TODO: Bereiche anpassen, indem die Helligkeit gemessen wird.
   if(helligkeit>750){
     return 240;
   }else if(helligkeit>300){
@@ -1083,8 +1096,6 @@ uint8_t LDR_Messung()
   }else{
     return 0;
   }
-  
-  //Serial.println("Safe: "+safe);
 }
 
 void Serielle_Textausgabe(const char* textbox, const char* text)
