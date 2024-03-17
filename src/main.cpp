@@ -1062,17 +1062,29 @@ void partymodus(){
 
 uint8_t LDR_Messung()
 {
-  uint8_t safe;
+  char val[2];
   helligkeit = analogRead(0); //Werte zwischen 0 und 1024
   Serial.print("Hell "+helligkeit);
-  delay(20);
-  //helligkeit=(helligkeit>800)?800:helligkeit;
-  safe=255-helligkeit/4;
-  char val[2];
-  //Serial.println("Safe: "+safe);
   sprintf(val, "%02d", helligkeit);
   Serielle_Textausgabe("l06.txt=",val);
-  return helligkeit;
+  //helligkeit=(helligkeit>800)?800:helligkeit;
+  if(helligkeit>750){
+    return 240;
+  }else if(helligkeit>300){
+    return 180;
+  }else if(helligkeit>200){
+    return 150;
+  }else if(helligkeit>150){
+    return 120;
+  }else if(helligkeit>100){
+    return 90;
+  }else if(helligkeit>50){
+    return 50;
+  }else{
+    return 0;
+  }
+  
+  //Serial.println("Safe: "+safe);
 }
 
 void Serielle_Textausgabe(const char* textbox, const char* text)
