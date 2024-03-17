@@ -44,8 +44,6 @@ uint8_t modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
 uint8_t leuchtstaerke=0;
 bool hauptleuchte_an=false;
 bool indirektebeleuchtung_an=false;
-bool radioH=false;
-bool radioN=false;
 int durchlaufzaehler_party_farbwechsel=0;
 volatile uint8_t flankenzaehler_ein_aus=0;
 uint8_t activeLamp=0; //0 beide aus; 1 Haupt; 2 Neben
@@ -217,14 +215,16 @@ void b_mixco_lkPopCallback(){
 }
 
 void r_hauptle_lkPopCallback(){
-  radioH=!radioH;
-  hauptleuchte_an=radioH;
+  hauptleuchte_an=!hauptleuchte_an;
+  refreshColours();
+  delay(10);
   refreshColours();
 }
 
 void r_indirektb_lkPopCallback(){
-  radioN=!radioN;
-  indirektebeleuchtung_an=radioN;
+  indirektebeleuchtung_an=!indirektebeleuchtung_an;
+  refreshColours();
+  delay(10);
   refreshColours();
 }
 #pragma endregion
@@ -321,8 +321,12 @@ switch (hmi_input[1])
 {
   case 0x00: //Mainpage
       switch(hmi_input[2]){
-        case 1:
+        case 1://Licht Einstellungen
           page = 1;
+          //Radio-Buttons
+          sendValue("rH",hauptleuchte_an?1:0);
+          delay(5);
+          sendValue("rN",indirektebeleuchtung_an?1:0);
           break;
         case 2:
           page = 2;
@@ -330,7 +334,7 @@ switch (hmi_input[1])
         case 3:
           page = 3;
           break;
-        case 5:
+        case 12:
           //Licht toggeln
           if(hauptleuchte_an||indirektebeleuchtung_an){
             hauptleuchte_an=false;
@@ -794,6 +798,10 @@ switch (hmi_input[1])
         case 0x10: //Home-Button
           page=0;
           break;
+        case 0x0E:  //Zurück
+          sendValue("rN",indirektebeleuchtung_an?1:0);
+          sendValue("rH",hauptleuchte_an?1:0);
+          break;
       }
       HMI_Input_loeschen(hmi_input);
   break;
@@ -883,9 +891,10 @@ if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==tr
     Serial.println("Alarm2");
   }
 
-  //Wurde eine Geste erkannt
-  if(Gestensensor()==1){
-    delay(20);  //Damit nicht direkt die nächste Geste erkannt wird(will hoch streichen und runter wird auch erkannt)
+  if(gestureActive){
+    if(Gestensensor()==1){//Wurde eine Geste erkannt
+      delay(20);  //Damit nicht direkt die nächste Geste erkannt wird(will hoch streichen und runter wird auch erkannt)
+    }
   }
 
   static uint8_t pause;
@@ -985,7 +994,6 @@ boolean setModusActive(int newMod){
       blue=255;
       bright=255;
       Serielle_Textausgabe("l06.txt=","Lernen"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-      refreshColours();
       break;
     case 2: //Entspannungslicht (Relax)
       red=241;
@@ -993,7 +1001,6 @@ boolean setModusActive(int newMod){
       blue=28;
       bright=255;
       Serielle_Textausgabe("l06.txt=","Relax"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-      refreshColours();
       break;
     case 4: //Party
       Serielle_Textausgabe("l06.txt=","Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
@@ -1002,22 +1009,22 @@ boolean setModusActive(int newMod){
       break;
     case 3: //Farben mix
       Serielle_Textausgabe("l06.txt=","Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-      refreshColours();
       //activateHauptBel(mainRed,mainGreen,mainBlue,mainBright);
       //activateIndBel(indRed, indGreen, indBlue, indBright);
       break;
     case 6: //Lichtabhängige Lichtansteuerung (Automatik)
+      Serielle_Textausgabe("l06.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       red=255;
       green=255;
       blue=255;
-      bright=LDR_Messung();
-      Serielle_Textausgabe("l06.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-      refreshColours();
+      //Scheiß Fehler, ist die Zeile aktiv dann hängt der Automatik-Modus
+      //bright=LDR_Messung();
       break;
     default:
       break;
   }
   modus=newMod;
+  refreshColours();
   return 1;
 }
 
@@ -1076,7 +1083,9 @@ uint8_t LDR_Messung()
 {
   char val[2];
   helligkeit = analogRead(0); //Werte zwischen 0 und 1024
-  //ikkSerial.print("Hell "+helligkeit);
+  Serial.write("Hell");
+  Serial.write(0xFF);
+  delay(10);
   sprintf(val, "%02d", helligkeit);
   Serielle_Textausgabe("l06.txt=",val);
   //helligkeit=(helligkeit>800)?800:helligkeit;
@@ -1123,7 +1132,7 @@ void Serielle_Textausgabe2(const char* textbox)
 }
 
 void sendValue(const char* object, uint8_t value){
-  char buf[3];
+  char buf[2];
   sprintf(buf, "%02d", value);
   for(int i=0;i<2;i++){
       Serial.print(object);
