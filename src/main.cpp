@@ -53,20 +53,12 @@ uint8_t red,green,blue,bright;
 
 //TODO: Können die Bool-Werte nicht einfacher in zwei Integern gespeichert werden? Wäre auch leichter zu verstehen.
 char hmi_input [7]={};    //Es werden 4 char benötigt, da wir 4 Datensätze pro Button übertragen, um diesen zu identifizieren
-bool montag_alarm1_memory=true;
-bool montag_alarm2_memory=true;
-bool dienstag_alarm1_memory=true;
-bool dienstag_alarm2_memory=true;
-bool mittwoch_alarm1_memory=true;
-bool mittwoch_alarm2_memory=true;
-bool donnerstag_alarm1_memory=true;
-bool donnerstag_alarm2_memory=true;
-bool freitag_alarm1_memory=true;
-bool freitag_alarm2_memory=true;
-bool samstag_alarm1_memory=true;
-bool samstag_alarm2_memory=true;
-bool sonntag_alarm1_memory=true;
-bool sonntag_alarm2_memory=true;
+bool woche1[7];
+bool woche2[7];
+for(uint8_t i =0, i<7, i++){
+  woche1[i]=true;
+  woche2[i]=true;
+}
 bool alarm1_ein_memory=false;
 bool alarm2_ein_memory=false;
 int8_t alarm1_minute_memory;
@@ -109,39 +101,12 @@ Adafruit_NeoPixel main_light(main_light_count,main_light_pin, NEO_GRB + NEO_KHZ8
 //Gestensensorobjekt
 RevEng_PAJ7620 sensor = RevEng_PAJ7620();
 
-// TODO: Alle Displayelemente und die Funktionen extrahieren
-
 //Displayelemente
 NexSlider p01 = NexSlider(6, 1, "p01"); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
 NexSlider p03 = NexSlider(6, 4, "p03"); //Slider gruen
 NexSlider p05 = NexSlider(6, 6, "p05"); //Slider blau
 NexSlider p07 = NexSlider(6, 8, "p07");  //Slider helligkeit
 
-#pragma region DisplayFunctions
-
-void p01PopCallback(){
-  p01.getValue(&memory);
-  red=memory;
-  refreshColours();
-}
-
-void p03PopCallback(){
-  p03.getValue(&memory);
-  green=memory;
-  refreshColours();
-}
-
-void p05PopCallback(){
-  p05.getValue(&memory);
-  blue=memory;
-  refreshColours();
-}
-
-void p07PopCallback(){
-  p07.getValue(&memory);
-  bright=memory;
-  refreshColours();
-}
 
 //Die Farbwerte für den aktuellen Modus speichern
 //Speichert die Werte für die aktiven Lampen
@@ -214,26 +179,6 @@ void b_switch_lsPopCallback(){
   refreshColours();
 }
 
-//Konfigurationsbutton
-void b_mixco_lkPopCallback(){
-  setModusActive(3);
-  Serielle_Textausgabe2("page 6");
-}
-
-void r_hauptle_lkPopCallback(){
-  hauptleuchte_an=!hauptleuchte_an;
-  refreshColours();
-  delay(10);
-  refreshColours();
-}
-
-void r_indirektb_lkPopCallback(){
-  indirektebeleuchtung_an=!indirektebeleuchtung_an;
-  refreshColours();
-  delay(10);
-  refreshColours();
-}
-#pragma endregion
 //Wecker + Uhrzeit
 RTC_DS3231 rtc;
 char wochentage[7][3] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
@@ -244,7 +189,6 @@ char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", 
 // Diese Mehtode wird einmalig zum Programmstart ausgeführt.
 void setup() 
 {
-
   //debug_init(); //AUFRUF IST NOTWENDIG UM DEBUGGER ZU STARTEN
   Serial.begin(9600); //Iinitialisierung von Serieller Verbindung um Ergebnisse anzuzeigen auf Konsole
 
@@ -260,14 +204,13 @@ void setup()
   pinMode(PIN_summer, OUTPUT); 
 
   //Gestensensor
-  
-  Serial.println("Recognizing all 9 gestures");
+  //Serial.println("Recognizing all 9 gestures");
 
   if( !sensor.begin() )           // return value of 0 == success
   {
-    Serial.println("PAJ7620 I2C error - halting");
+    Serial.println("Gesten init FAIL");
   }else{
-    Serial.println("PAJ7620 init OK");
+    Serial.println("Gesten init OK");
     //Serial.println("Please input gestures");
   }
   
@@ -278,14 +221,14 @@ void setup()
     Serial.flush();
     abort();
   }else{
-    Serial.println("RTC initialisiert");
+    Serial.println("RTC init OK");
   }
 
    rtc.disable32K();
 
   if (rtc.lostPower()) {
     //TODO: Implementieren auf Touchdisplay evtl. sichtbar
-     Serial.println("RTC lost power, let's set the time!");
+     Serial.println("RTC lost the time!");
   }
   rtc.writeSqwPinMode(DS3231_SquareWave1Hz);   //Configure SQW pin on the DS3231 to output a 1Hz squarewave to Arduino pin 2 (SQWinput) for timing
   pinMode(PIN_SQW, INPUT); //Configure the SQWinput pin as an INPUT to monitor the SQW pin of the DS3231.
@@ -294,11 +237,11 @@ void setup()
   flanke_rtc_sqw = true; //Initialize EDGE equal to 1. The Interrupt Service Routine will make EDGE equal to zero when triggered by a falling clock edge on SQW
 
   //Alarm (Wecker)
-  //rtc.disableAlarm(1);
+  rtc.disableAlarm(1);
   rtc.disableAlarm(2);
   rtc.clearAlarm(1);
   rtc.clearAlarm(2);  
-  rtc.writeSqwPinMode(DS3231_OFF);
+  //rtc.writeSqwPinMode(DS3231_OFF);
 
   //TODO: nur zum Testen
   rtc.setAlarm1(DateTime(2024, 3, 20, 21, 05, 0), DS3231_A1_Day);
@@ -320,7 +263,6 @@ void loop()
     hmi_input[6]=Serial.read();
   }
 
-
 //Äußere switch seite
 //switch in Case von äußerem switch button
 //hmi_input[1]=> Seite 2, hmi_input[2] => Button
@@ -330,9 +272,7 @@ switch (hmi_input[1])
       switch(hmi_input[2]){
         case 1://Licht Einstellungen
           page = 1;
-          //Radio-Buttons, funktioniert nicht
-          //TODO: 
-          
+          //Radio-Buttons, funktioniert nicht          
           //delay(100);
           if(hauptleuchte_an){
             sendValue("l07",1);
@@ -344,7 +284,6 @@ switch (hmi_input[1])
           }else{
             sendValue("l08",0);
           }
-          
           break;
         case 2:
           page = 2;
@@ -392,13 +331,20 @@ switch (hmi_input[1])
           setModusActive(4);
           break;
         case 0x10://Licht-Konfig
-          b_mixco_lkPopCallback();
+          //setModusActive(3);
+          Serielle_Textausgabe2("page 6");
           break;
         case 0x09://Hauptlicht an?
-          r_hauptle_lkPopCallback();
+          hauptleuchte_an=!hauptleuchte_an;
+          refreshColours();
+          delay(10);
+          refreshColours();
           break;
         case 0x0A://Nebenlicht an?
-          r_indirektb_lkPopCallback();
+          indirektebeleuchtung_an=!indirektebeleuchtung_an;
+          refreshColours();
+          delay(10);
+          refreshColours();
           break;
       }
       HMI_Input_loeschen(hmi_input);
@@ -453,67 +399,25 @@ switch (hmi_input[1])
             break;
 
           case 0x03: //Montag (Alarm1)
-              if(montag_alarm1_memory==true)
-              {
-                montag_alarm1_memory=false;
-              } else if (montag_alarm1_memory==false)
-              {
-                montag_alarm1_memory=true;
-              } 
+              woche1[1]=!woche1[1];
             break;
           case 0x04: //Dienstag (Alarm1)
-              if(dienstag_alarm1_memory==true)
-              {
-                dienstag_alarm1_memory=false;
-              } else if (dienstag_alarm1_memory==false)
-              {
-                dienstag_alarm1_memory=true;
-              }     
+              woche1[2]=!woche1[2];   
             break;
           case 0x06: //Mittwoch (Alarm1)
-              if(mittwoch_alarm1_memory==true)
-              {
-                mittwoch_alarm1_memory=false;
-              } else //if (mittwoch_alarm1_memory==false)
-              {
-                mittwoch_alarm1_memory=true;
-              } 
+              woche1[3]=!woche1[3];
             break;
           case 0x05: //Donnerstag (Alarm1)
-              if(donnerstag_alarm1_memory==true)
-              {
-                donnerstag_alarm1_memory=false;
-              } else if (donnerstag_alarm1_memory==false)
-              {
-                donnerstag_alarm1_memory=true;
-              } 
+              woche1[4]=!woche1[4];
             break;
           case 0x08: //Freitag (Alarm1)
-              if(freitag_alarm1_memory==true)
-              {
-                freitag_alarm1_memory=false;
-              } else if (freitag_alarm1_memory==false)
-              {
-                freitag_alarm1_memory=true;
-              } 
+              woche1[5]=!woche1[5];
             break;
           case 0x07:  //Samstag (Alarm1)
-              if(samstag_alarm1_memory==true)
-              {
-                samstag_alarm1_memory=false;
-              } else if (samstag_alarm1_memory==false)
-              {
-                samstag_alarm1_memory=true;
-              } 
+              woche1[6]=!woche1[6];
             break;
           case 0x09: //Sonntag (Alarm1)
-              if(sonntag_alarm1_memory==true)
-              {
-                sonntag_alarm1_memory=false;
-              } else if (sonntag_alarm1_memory==false)
-              {
-                sonntag_alarm1_memory=true;
-              } 
+              woche1[0]=!woche1[0];
             break;
 
           case 0x1B: //Alarm 2 Stunde verringern(1, 0, 23,...)
@@ -551,68 +455,25 @@ switch (hmi_input[1])
             break;
 
           case 0x0A: //Montag (Alarm2)
-              if(montag_alarm2_memory==true)
-              {
-                montag_alarm2_memory=false;
-              } else if (montag_alarm2_memory==false)
-              {
-                montag_alarm2_memory=true;
-              } 
-              Serial.println("Mo aus");
+              woche2[1]=!woche2[1];
             break;
           case 0x0B: //Dienstag (Alarm2)
-              if(dienstag_alarm2_memory==true)
-              {
-                dienstag_alarm2_memory=false;
-              } else if (dienstag_alarm2_memory==false)
-              {
-                dienstag_alarm2_memory=true;
-              }     
+              woche2[2]=!woche2[2];  
             break;
           case 0x0D: //Mittwoch (Alarm2)
-              if(mittwoch_alarm2_memory==true)
-              {
-                mittwoch_alarm2_memory=false;
-              } else if (mittwoch_alarm2_memory==false)
-              {
-                mittwoch_alarm2_memory=true;
-              } 
+              woche2[3]=!woche2[3];
             break;
           case 0x0C: //Donnerstag (Alarm2)
-              if(donnerstag_alarm2_memory==true)
-              {
-                donnerstag_alarm2_memory=false;
-              } else if (donnerstag_alarm2_memory==false)
-              {
-                donnerstag_alarm2_memory=true;
-              } 
+              woche2[4]=!woche2[4];
             break;
           case 0x0F: //Freitag (Alarm2)
-              if(freitag_alarm2_memory==true)
-              {
-                freitag_alarm2_memory=false;
-              } else if (freitag_alarm2_memory==false)
-              {
-                freitag_alarm2_memory=true;
-              } 
+              woche2[5]=!woche2[5];
             break;
           case 0x0E:  //Samstag (Alarm2)
-              if(samstag_alarm2_memory==true)
-              {
-                samstag_alarm2_memory=false;
-              } else if (samstag_alarm2_memory==false)
-              {
-                samstag_alarm2_memory=true;
-              } 
+              woche2[6]=!woche2[6];
             break;
           case 0x10: //Sonntag (Alarm2)
-              if(sonntag_alarm2_memory==true)
-              {
-                sonntag_alarm2_memory=false;
-              } else if (sonntag_alarm2_memory==false)
-              {
-                sonntag_alarm2_memory=true;
-              } 
+              woche2[0]=!woche2[0];
             break;
 
           case 0x23: //Alarm 1 Ein/Aus
@@ -620,7 +481,7 @@ switch (hmi_input[1])
               {
                 rtc.clearAlarm(1);
                 alarm1_ein_memory=false;
-                Serial.println("Alarm1 aus");
+                //Serial.println("Alarm1 aus");
               } else //if (alarm1_ein_memory==false)
               {
                 rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day);
@@ -634,7 +495,7 @@ switch (hmi_input[1])
               {
                 rtc.clearAlarm(1);
                 alarm2_ein_memory=false;
-                Serial.println("Alarm2 aus");
+                //Serial.println("Alarm2 aus");
               } else //if (alarm2_ein_memory==false)
               {
                 rtc.setAlarm2(DateTime(now.year(), now.month(), now.day(), alarm2_stunde_memory, alarm2_minute_memory, 0), DS3231_A2_Day);
@@ -803,16 +664,24 @@ switch (hmi_input[1])
           b_switch_lsPopCallback();
           break;
         case 0x01:
-          p01PopCallback();
+          p01.getValue(&memory);
+          red=memory;
+          refreshColours();
           break;
         case 0x04:
-          p03PopCallback();
+          p03.getValue(&memory);
+          green=memory;
+          refreshColours();
           break;
         case 0x06:
-          p05PopCallback();
+          p05.getValue(&memory);
+          blue=memory;
+          refreshColours();
           break;
         case 0x08:
-          p07PopCallback();
+          p07.getValue(&memory);
+          bright=memory;
+          refreshColours();
           break;
         case 0x10: //Home-Button
           page=0;
@@ -833,6 +702,7 @@ switch (hmi_input[1])
     if(hmi_input[2]==3){
       page=0;
     }
+    HMI_Input_loeschen(hmi_input);
   break;
 
   case 8:
@@ -843,16 +713,13 @@ switch (hmi_input[1])
       rtc.clearAlarm(2);
       activAlarm=false;
     }
+    HMI_Input_loeschen(hmi_input);
   break;
 
 default:
+  HMI_Input_loeschen(hmi_input);
   break;
 }
-
-
-
-
-
 
 //TODO: muss wieder entfertn werden wnn wieder mit dem interupt gearbeitet wird
 
@@ -865,15 +732,6 @@ default:
     }
   }
   anzeige_zeit++;
-  
-  /*
-  if(now.hour()==alarm1_stunde_memory && now.minute()==alarm1_minute_memory){
-    Serial.println("ALARM\n");
-    bright=200;
-    hauptleuchte_an=true;
-    refreshColours();
-  }
-  */
 
   if(rtc.alarmFired(1) && alarm1_ein_memory==true)
   {
@@ -903,13 +761,13 @@ if(!(mem_day==now.dayOfTheWeek())){
 }
 if(!settingAlarm){
 //Wecker (Alarm 1)
-if(((now.dayOfTheWeek()==1 && montag_alarm1_memory==true) || 
-    (now.dayOfTheWeek()==2 && dienstag_alarm1_memory==true) || 
-    (now.dayOfTheWeek()==3 && mittwoch_alarm1_memory==true) ||
-    (now.dayOfTheWeek()==4 && donnerstag_alarm1_memory==true) ||
-    (now.dayOfTheWeek()==5 && freitag_alarm1_memory==true) ||
-    (now.dayOfTheWeek()==6 && samstag_alarm1_memory==true) ||
-    (now.dayOfTheWeek()==0 && sonntag_alarm1_memory==true))&&
+if(((now.dayOfTheWeek()==1 && woche1[1]==true) || 
+    (now.dayOfTheWeek()==2 && woche1[2]==true) || 
+    (now.dayOfTheWeek()==3 && woche1[3]==true) ||
+    (now.dayOfTheWeek()==4 && woche1[4]==true) ||
+    (now.dayOfTheWeek()==5 && woche1[5]==true) ||
+    (now.dayOfTheWeek()==6 && woche1[6]==true) ||
+    (now.dayOfTheWeek()==0 && woche1[0]==true))&&
     alarm1_ein_memory)
     {
       rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day); //Alarm when day (day of week), hours,minutes and seconds match 
@@ -919,13 +777,13 @@ if(((now.dayOfTheWeek()==1 && montag_alarm1_memory==true) ||
       Serial.println("Ala1 disable");
     }
 //Wecker (Alarm 2)
-if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==true) || 
-    (now.dayOfTheWeek()==2 && dienstag_alarm2_memory==true && alarm2_ein_memory==true) || 
-    (now.dayOfTheWeek()==3 && mittwoch_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==4 && donnerstag_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==5 && freitag_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==6 && samstag_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==0 && sonntag_alarm2_memory==true && alarm2_ein_memory==true))
+if((now.dayOfTheWeek()==1 && woche2[1]==true && alarm2_ein_memory==true) || 
+    (now.dayOfTheWeek()==2 && woche2[2]==true && alarm2_ein_memory==true) || 
+    (now.dayOfTheWeek()==3 && woche2[3]==true && alarm2_ein_memory==true) ||
+    (now.dayOfTheWeek()==4 && woche2[4]==true && alarm2_ein_memory==true) ||
+    (now.dayOfTheWeek()==5 && woche2[5]==true && alarm2_ein_memory==true) ||
+    (now.dayOfTheWeek()==6 && woche2[6]==true && alarm2_ein_memory==true) ||
+    (now.dayOfTheWeek()==0 && woche2[0]==true && alarm2_ein_memory==true))
     {
       rtc.setAlarm2(DateTime(now.year(), now.month(), now.day(), alarm2_stunde_memory, alarm2_minute_memory, 0), DS3231_A2_Day); //Alarm when day (day of week), hours,inutes and seconds match 
     }else{
@@ -1100,7 +958,6 @@ void refreshColours(){
       activateHauptBel(0,0,0,0);
     }
   }
-  
 }
 
 void activateIndBel(uint8_t rot, uint8_t gruen, uint8_t blau, uint8_t hell){
@@ -1131,9 +988,6 @@ uint8_t LDR_Messung()
 {
   char val[2];
   helligkeit = analogRead(0); //Werte zwischen 0 und 1024
-  Serial.write("Hell");
-  Serial.write(0xFF);
-  delay(10);
   sprintf(val, "%02d", helligkeit);
   Serielle_Textausgabe("l06.txt=",val);
   //helligkeit=(helligkeit>800)?800:helligkeit;
@@ -1158,7 +1012,7 @@ uint8_t LDR_Messung()
 void Serielle_Textausgabe(const char* textbox, const char* text)
 {
   const char* cmd="\"";
-  for(int i=0;i<1;i++){
+  for(int i=0;i<2;i++){
       Serial.print(textbox);
       Serial.print(cmd);
       Serial.print(text);
