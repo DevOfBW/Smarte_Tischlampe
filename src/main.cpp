@@ -183,8 +183,7 @@ void b_switch_lsPopCallback(){
 
 //Konfigurationsbutton
 void b_mixco_lkPopCallback(){
-  setModusActive(3);
-  DisplayCommand("page 6");
+  setModusActive(5);
 }
 
 void r_hauptle_lkPopCallback(){
@@ -286,25 +285,19 @@ switch (hmi_input[1])
 {
   case 0x00: //Mainpage
       switch(hmi_input[2]){
-        case 1://Licht Einstellungen
+        case 2://Licht Einstellungen
           page = 1;
           //Radio-Buttons, funktioniert nicht
           //TODO: 
           
-          //delay(100);
           if(hauptleuchte_an){
             sendValue("l07",1);
-          }else{
-            sendValue("l07",0);
           }
           if(indirektebeleuchtung_an){
             sendValue("l08",1);
-          }else{
-            sendValue("l08",0);
-          }
-          
+          }          
           break;
-        case 2:
+        case 1:
           page = 2;
           break;
         case 3:
@@ -564,12 +557,16 @@ default:
     }else if(modus==4){
       partymodus();
     }
+
+    if(gestureActive){
+      if(Gestensensor()==1){
+        Serial.println("Geste");
+      } 
+    }
   }
   anzeige_zeit++;
 
-  if(gestureActive){
-    if(Gestensensor()==1) Serial.println("Geste");
-  }
+  
 }
 
 void HMI_Input_loeschen(char* HMI_Input_array)
