@@ -18,14 +18,12 @@
 #define LED_COUNT_IndRe 14    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
 #define main_light_count 25
 #define main_light_pin 3
-#define PIN_LED 13
 #define PIN_schalter 7
 #define PIN_summer 4 //Pin an dem der Summer angeschlossen ist
 #define PIN_SQW 2
 //const byte PIN_SQW = 2; //Interruptpin RTC -> SQW pin is used to monitor the SQW 1Hz output from the DS3231
 bool flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
 uint16_t helligkeit; //Wird benötigt für die LDR-Messung
-bool flanke_Licht_ein = false;
 uint8_t modNeu=0;
 uint8_t parRed[12]={128, 192, 239, 255, 239, 192, 128, 64, 17, 0, 17, 64};
 uint8_t parBlue[13]={213, 159, 97, 43, 8, 1, 23, 69, 128, 187, 233, 255, 248};
@@ -36,18 +34,15 @@ int pause=0;
 uint8_t page=0; //0 Main-Seite
 bool gestureActive=true; //Zeigt ob der Gestensensor Eingaben verarbeiten kann
 bool settingAlarm=false;
-uint8_t mem_day=0;
+//uint8_t mem_day=0;
 
 //Speicher für den Mixmodus
 uint8_t indRed,indGreen,indBlue,indBright;
 uint8_t mainRed,mainGreen,mainBlue,mainBright;
 uint32_t memory;
 uint8_t modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
-uint8_t leuchtstaerke=0;
 bool hauptleuchte_an=false;
 bool indirektebeleuchtung_an=false;
-int durchlaufzaehler_party_farbwechsel=0;
-volatile uint8_t flankenzaehler_ein_aus=0;
 uint8_t activeLamp=1; //0 beide aus; 1 Haupt; 2 Neben
 uint8_t red,green,blue,bright;
 
@@ -73,7 +68,6 @@ int8_t alarm1_minute_memory;
 int8_t alarm1_stunde_memory;
 int8_t alarm2_minute_memory;
 int8_t alarm2_stunde_memory;
-int help=0;
 bool activAlarm=false;
 
 
@@ -161,7 +155,7 @@ void bt_save_lsPopCallback(){
 
 void b_switch_lsPopCallback(){
   char text[6];
-  strcpy(text,"      ");
+  strcpy(text,"     ");
   activeLamp++;
   switch(activeLamp){
     case 1: 
@@ -183,13 +177,7 @@ void b_switch_lsPopCallback(){
         bright=indBright;
         activeLamp=0;
         break;
-    default: //Sollte nun nicht mehr vorkommen
-        /*
-        hauptleuchte_an=false;
-        indirektebeleuchtung_an=false;
-        strcpy(text,"Aus");
-        activeLamp=0;
-        */
+    default: 
         break;
   }
   Serielle_Textausgabe("p10.txt=",text);
@@ -268,7 +256,6 @@ void setup()
     Serial.println("PAJ7620 I2C error - halting");
   }else{
     Serial.println("PAJ7620 init OK");
-    //Serial.println("Please input gestures");
   }
   
   //RTC
@@ -295,13 +282,13 @@ void setup()
 
   //Alarm (Wecker)
   //rtc.disableAlarm(1);
-  rtc.disableAlarm(2);
+  //rtc.disableAlarm(2);
   rtc.clearAlarm(1);
   rtc.clearAlarm(2);  
   rtc.writeSqwPinMode(DS3231_OFF);
 
   //TODO: nur zum Testen
-  rtc.setAlarm1(DateTime(2024, 3, 20, 21, 05, 0), DS3231_A1_Day);
+  rtc.setAlarm1(DateTime(2024, 3, 23, 9, 52, 0), DS3231_A1_Hour);
 }
 
 
@@ -321,6 +308,7 @@ void loop()
   }
 
 
+if(hmi_input[0]==0x65){
 //Äußere switch seite
 //switch in Case von äußerem switch button
 //hmi_input[1]=> Seite 2, hmi_input[2] => Button
@@ -362,7 +350,7 @@ switch (hmi_input[1])
             indirektebeleuchtung_an=true;
           }
           refreshColours();
-          refreshColours();
+          //refreshColours();
           break;
         
       }
@@ -823,7 +811,6 @@ switch (hmi_input[1])
           }else{
             activateHauptBel(red, green, blue, bright);
           }
-          Serial.println("Warum?");
           break;
       }
       HMI_Input_loeschen(hmi_input);
@@ -848,14 +835,7 @@ switch (hmi_input[1])
 default:
   break;
 }
-
-
-
-
-
-
-//TODO: muss wieder entfertn werden wnn wieder mit dem interupt gearbeitet wird
-
+}
 
   static uint8_t anzeige_zeit;
   if(anzeige_zeit==150){
@@ -865,18 +845,16 @@ default:
     }
   }
   anzeige_zeit++;
-  
-  /*
-  if(now.hour()==alarm1_stunde_memory && now.minute()==alarm1_minute_memory){
-    Serial.println("ALARM\n");
-    bright=200;
-    hauptleuchte_an=true;
-    refreshColours();
-  }
-  */
 
   if(rtc.alarmFired(1) && alarm1_ein_memory==true)
   {
+    if((now.dayOfTheWeek()==1 && montag_alarm1_memory==true) || 
+    (now.dayOfTheWeek()==2 && dienstag_alarm1_memory==true) || 
+    (now.dayOfTheWeek()==3 && mittwoch_alarm1_memory==true) ||
+    (now.dayOfTheWeek()==4 && donnerstag_alarm1_memory==true) ||
+    (now.dayOfTheWeek()==5 && freitag_alarm1_memory==true) ||
+    (now.dayOfTheWeek()==6 && samstag_alarm1_memory==true) ||
+    (now.dayOfTheWeek()==0 && sonntag_alarm1_memory==true)){
     if(!activAlarm){
       activAlarm=true;
       Serielle_Textausgabe2("page 8");
@@ -884,62 +862,28 @@ default:
       Signalgeber(true);
       Serial.println("Alarm1");
     }
+    }
   }
   if(rtc.alarmFired(2) && alarm2_ein_memory==true)
   {
+    if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true) || 
+    (now.dayOfTheWeek()==2 && dienstag_alarm2_memory==true) || 
+    (now.dayOfTheWeek()==3 && mittwoch_alarm2_memory==true) ||
+    (now.dayOfTheWeek()==4 && donnerstag_alarm2_memory==true) ||
+    (now.dayOfTheWeek()==5 && freitag_alarm2_memory==true) ||
+    (now.dayOfTheWeek()==6 && samstag_alarm2_memory==true) ||
+    (now.dayOfTheWeek()==0 && sonntag_alarm2_memory==true)){
     if(!activAlarm){
       activAlarm=true;
       Serielle_Textausgabe2("page 8");
     }
     Signalgeber(true);
     Serial.println("Alarm2");
+    }
   }
 
-  //TODO: Vermutung: Setzen des Alarms wird zu oft aufgerufen, sodass Alarm fired überschrieben wird
-  /*
-if(!(mem_day==now.dayOfTheWeek())){
-  settingAlarm=false;
-  mem_day=now.dayOfTheWeek();
-}
-if(!settingAlarm){
-//Wecker (Alarm 1)
-if(((now.dayOfTheWeek()==1 && montag_alarm1_memory==true) || 
-    (now.dayOfTheWeek()==2 && dienstag_alarm1_memory==true) || 
-    (now.dayOfTheWeek()==3 && mittwoch_alarm1_memory==true) ||
-    (now.dayOfTheWeek()==4 && donnerstag_alarm1_memory==true) ||
-    (now.dayOfTheWeek()==5 && freitag_alarm1_memory==true) ||
-    (now.dayOfTheWeek()==6 && samstag_alarm1_memory==true) ||
-    (now.dayOfTheWeek()==0 && sonntag_alarm1_memory==true))&&
-    alarm1_ein_memory)
-    {
-      rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day); //Alarm when day (day of week), hours,minutes and seconds match 
-    }else{
-      rtc.clearAlarm(1);  //Alarm ausschalten
-      noTone(4);  //Signalton ausschalten
-      Serial.println("Ala1 disable");
-    }
-//Wecker (Alarm 2)
-if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==true) || 
-    (now.dayOfTheWeek()==2 && dienstag_alarm2_memory==true && alarm2_ein_memory==true) || 
-    (now.dayOfTheWeek()==3 && mittwoch_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==4 && donnerstag_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==5 && freitag_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==6 && samstag_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==0 && sonntag_alarm2_memory==true && alarm2_ein_memory==true))
-    {
-      rtc.setAlarm2(DateTime(now.year(), now.month(), now.day(), alarm2_stunde_memory, alarm2_minute_memory, 0), DS3231_A2_Day); //Alarm when day (day of week), hours,inutes and seconds match 
-    }else{
-      rtc.clearAlarm(2);  //Alarm ausschalten
-      noTone(4);  //Signalton ausschalten
-    }
-    settingAlarm=true;
-    Serial.println("Alarm set");
-}
-*/
   if(gestureActive){
-    if(Gestensensor()==1){//Wurde eine Geste erkannt
-      delay(20);  //Damit nicht direkt die nächste Geste erkannt wird(will hoch streichen und runter wird auch erkannt)
-    }
+    if(Gestensensor()) Serial.println("Geste");
   }
 
   static uint16_t pause;
@@ -965,7 +909,7 @@ void HMI_Input_loeschen(char* HMI_Input_array)
 {
   for(int i=0; i<7;i++) //Inputdatenarray löschen
       {
-        HMI_Input_array[i]="";
+        HMI_Input_array[i]=0;
       }
 }
 
@@ -1052,21 +996,15 @@ boolean setModusActive(int newMod){
       break;
     case 4: //Party
       Serielle_Textausgabe("l06.txt=","Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-        //wird in anderen Funktion gehändelt
-        //Task aktivieren?
       break;
     case 3: //Farben mix
       Serielle_Textausgabe("l06.txt=","Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
-      //activateHauptBel(mainRed,mainGreen,mainBlue,mainBright);
-      //activateIndBel(indRed, indGreen, indBlue, indBright);
       break;
     case 6: //Lichtabhängige Lichtansteuerung (Automatik)
       Serielle_Textausgabe("l06.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       red=255;
       green=255;
       blue=255;
-      //Scheiß Fehler, ist die Zeile aktiv dann hängt der Automatik-Modus
-      //bright=LDR_Messung();
       break;
     default:
       break;
@@ -1131,9 +1069,6 @@ uint8_t LDR_Messung()
 {
   char val[2];
   helligkeit = analogRead(0); //Werte zwischen 0 und 1024
-  Serial.write("Hell");
-  Serial.write(0xFF);
-  delay(10);
   sprintf(val, "%02d", helligkeit);
   Serielle_Textausgabe("l06.txt=",val);
   //helligkeit=(helligkeit>800)?800:helligkeit;
@@ -1205,6 +1140,7 @@ uint8_t Gestensensor()
         //deactivate Alarm
           Signalgeber(false);
           Serielle_Textausgabe2("page 0");
+          page=0;
         break;
       }
 
