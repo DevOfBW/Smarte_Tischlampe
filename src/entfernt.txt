@@ -1,0 +1,336 @@
+Zeile 23:
+#define PIN_SQW 2
+//const byte PIN_SQW = 2; //Interruptpin RTC -> SQW pin is used to monitor the SQW 1Hz output from the DS3231
+bool flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
+
+Zeile 49:
+bool montag_alarm1_memory=true;
+bool montag_alarm2_memory=true;
+bool dienstag_alarm1_memory=true;
+bool dienstag_alarm2_memory=true;
+bool mittwoch_alarm1_memory=true;
+bool mittwoch_alarm2_memory=true;
+bool donnerstag_alarm1_memory=true;
+bool donnerstag_alarm2_memory=true;
+bool freitag_alarm1_memory=true;
+bool freitag_alarm2_memory=true;
+bool samstag_alarm1_memory=true;
+bool samstag_alarm2_memory=true;
+bool sonntag_alarm1_memory=true;
+bool sonntag_alarm2_memory=true;
+bool alarm1_ein_memory=false;
+bool alarm2_ein_memory=false;
+int8_t alarm1_minute_memory;
+int8_t alarm1_stunde_memory;
+int8_t alarm2_minute_memory;
+int8_t alarm2_stunde_memory;
+bool activAlarm=false;
+
+void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
+
+In Init Funktion:
+rtc.writeSqwPinMode(DS3231_SquareWave1Hz);   //Configure SQW pin on the DS3231 to output a 1Hz squarewave to Arduino pin 2 (SQWinput) for timing
+  pinMode(PIN_SQW, INPUT); //Configure the SQWinput pin as an INPUT to monitor the SQW pin of the DS3231.
+  digitalWrite (PIN_SQW, HIGH); //Enable the internal pull-up resistor, since the SQW pin on the DS3231 is an Open Drain output.
+  attachInterrupt(digitalPinToInterrupt(PIN_SQW), ISR_RTC, FALLING); //Configure SQWinput (pin 2 of the Arduino) for use by the Interrupt Service Routine (Isr)
+  flanke_rtc_sqw = true; //Initialize EDGE equal to 1. The Interrupt Service Routine will make EDGE equal to zero when triggered by a falling clock edge on SQW
+
+
+In Main loop:
+if(rtc.alarmFired(1) && alarm1_ein_memory==true)
+  {
+    if((now.dayOfTheWeek()==1 && montag_alarm1_memory==true) || 
+    (now.dayOfTheWeek()==2 && dienstag_alarm1_memory==true) || 
+    (now.dayOfTheWeek()==3 && mittwoch_alarm1_memory==true) ||
+    (now.dayOfTheWeek()==4 && donnerstag_alarm1_memory==true) ||
+    (now.dayOfTheWeek()==5 && freitag_alarm1_memory==true) ||
+    (now.dayOfTheWeek()==6 && samstag_alarm1_memory==true) ||
+    (now.dayOfTheWeek()==0 && sonntag_alarm1_memory==true)){
+    if(!activAlarm){
+      activAlarm=true;
+      Serielle_Textausgabe2("page 8");
+    }else{
+      Signalgeber(true);
+      Serial.println("Alarm1");
+    }
+    }
+  }
+  if(rtc.alarmFired(2) && alarm2_ein_memory==true)
+  {
+    if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true) || 
+    (now.dayOfTheWeek()==2 && dienstag_alarm2_memory==true) || 
+    (now.dayOfTheWeek()==3 && mittwoch_alarm2_memory==true) ||
+    (now.dayOfTheWeek()==4 && donnerstag_alarm2_memory==true) ||
+    (now.dayOfTheWeek()==5 && freitag_alarm2_memory==true) ||
+    (now.dayOfTheWeek()==6 && samstag_alarm2_memory==true) ||
+    (now.dayOfTheWeek()==0 && sonntag_alarm2_memory==true)){
+    if(!activAlarm){
+      activAlarm=true;
+      Serielle_Textausgabe2("page 8");
+    }
+    Signalgeber(true);
+    Serial.println("Alarm2");
+    }
+  }
+
+
+Teil von HMI_INPUT:
+  case 2: //Wecker-page
+  #pragma region Wecker
+      char alarm1_stunde[4];
+      char alarm1_minute[4];
+      char alarm2_stunde[4];
+      char alarm2_minute[4];
+      
+        switch (hmi_input[2])
+        {
+          case 0x02:  //Home-Button
+            page=0;
+            break;
+          case 0x13: //Alarm 1Stunde verringern(1, 0, 23,...)
+            alarm1_stunde_memory--;
+            if(alarm1_stunde_memory<0){
+            alarm1_stunde_memory=23;
+            }
+            sprintf(alarm1_stunde, "%02d", alarm1_stunde_memory);
+            Serielle_Textausgabe("a10.txt=",alarm1_stunde);
+            break;
+          case 0x11: //Alarm 1 Stunde erhöhen (1, 2, 3,...)
+            alarm1_stunde_memory++;
+            if(alarm1_stunde_memory>23){
+            alarm1_stunde_memory=0;
+            }
+            sprintf(alarm1_stunde, "%02d", alarm1_stunde_memory);
+            Serielle_Textausgabe("a10.txt=",alarm1_stunde);
+            break; 
+
+          case 0x16: //Alarm 1 Minute verringern(1, 59, 58,...)
+            alarm1_minute_memory--;
+            if(alarm1_minute_memory<1){
+            alarm1_minute_memory=59;
+            }
+            sprintf(alarm1_minute, "%02d", alarm1_minute_memory);
+            Serielle_Textausgabe("a12.txt=",alarm1_minute);
+            break;
+          case 0x14: //Alarm 1 Minute erhöhen (1, 2, 3,...)
+            alarm1_minute_memory++;
+            if(alarm1_minute_memory>59){
+            alarm1_minute_memory=0;
+            }
+            sprintf(alarm1_minute, "%02d", alarm1_minute_memory);
+            Serielle_Textausgabe("a12.txt=",alarm1_minute);
+            break;
+
+          case 0x03: //Montag (Alarm1)
+              if(montag_alarm1_memory==true)
+              {
+                montag_alarm1_memory=false;
+              } else if (montag_alarm1_memory==false)
+              {
+                montag_alarm1_memory=true;
+              } 
+            break;
+          case 0x04: //Dienstag (Alarm1)
+              if(dienstag_alarm1_memory==true)
+              {
+                dienstag_alarm1_memory=false;
+              } else if (dienstag_alarm1_memory==false)
+              {
+                dienstag_alarm1_memory=true;
+              }     
+            break;
+          case 0x06: //Mittwoch (Alarm1)
+              if(mittwoch_alarm1_memory==true)
+              {
+                mittwoch_alarm1_memory=false;
+              } else //if (mittwoch_alarm1_memory==false)
+              {
+                mittwoch_alarm1_memory=true;
+              } 
+            break;
+          case 0x05: //Donnerstag (Alarm1)
+              if(donnerstag_alarm1_memory==true)
+              {
+                donnerstag_alarm1_memory=false;
+              } else if (donnerstag_alarm1_memory==false)
+              {
+                donnerstag_alarm1_memory=true;
+              } 
+            break;
+          case 0x08: //Freitag (Alarm1)
+              if(freitag_alarm1_memory==true)
+              {
+                freitag_alarm1_memory=false;
+              } else if (freitag_alarm1_memory==false)
+              {
+                freitag_alarm1_memory=true;
+              } 
+            break;
+          case 0x07:  //Samstag (Alarm1)
+              if(samstag_alarm1_memory==true)
+              {
+                samstag_alarm1_memory=false;
+              } else if (samstag_alarm1_memory==false)
+              {
+                samstag_alarm1_memory=true;
+              } 
+            break;
+          case 0x09: //Sonntag (Alarm1)
+              if(sonntag_alarm1_memory==true)
+              {
+                sonntag_alarm1_memory=false;
+              } else if (sonntag_alarm1_memory==false)
+              {
+                sonntag_alarm1_memory=true;
+              } 
+            break;
+
+          case 0x1B: //Alarm 2 Stunde verringern(1, 0, 23,...)
+            alarm2_stunde_memory--;
+            if(alarm2_stunde_memory<0){
+            alarm2_stunde_memory=23;
+            }
+            sprintf(alarm2_stunde, "%02d", alarm2_stunde_memory);
+            Serielle_Textausgabe("a17.txt=",alarm2_stunde);
+            break;
+          case 0x1D: //Alarm 2 Stunde erhöhen (1, 2, 3,...)
+            alarm2_stunde_memory++;
+            if(alarm2_stunde_memory>23){
+            alarm2_stunde_memory=0;
+            }
+            sprintf(alarm2_stunde, "%02d", alarm2_stunde_memory);
+            Serielle_Textausgabe("a17.txt=",alarm2_stunde);
+            break; 
+
+          case 0x18: //Alarm 2 Minute verringern(1, 59, 58,...)
+            alarm2_minute_memory--;
+            if(alarm2_minute_memory<1){
+            alarm2_minute_memory=59;
+            }
+            sprintf(alarm2_minute, "%02d", alarm2_minute_memory);
+            Serielle_Textausgabe("a19.txt=",alarm2_minute);
+            break;
+          case 0x1A: //Alarm 2 Minute erhöhen (1, 2, 3,...)
+            alarm2_minute_memory++;
+            if(alarm2_minute_memory>59){
+            alarm2_minute_memory=0;
+            }
+            sprintf(alarm2_minute, "%02d", alarm2_minute_memory);
+            Serielle_Textausgabe("a19.txt=",alarm2_minute);
+            break;
+
+          case 0x0A: //Montag (Alarm2)
+              if(montag_alarm2_memory==true)
+              {
+                montag_alarm2_memory=false;
+              } else if (montag_alarm2_memory==false)
+              {
+                montag_alarm2_memory=true;
+              } 
+              Serial.println("Mo aus");
+            break;
+          case 0x0B: //Dienstag (Alarm2)
+              if(dienstag_alarm2_memory==true)
+              {
+                dienstag_alarm2_memory=false;
+              } else if (dienstag_alarm2_memory==false)
+              {
+                dienstag_alarm2_memory=true;
+              }     
+            break;
+          case 0x0D: //Mittwoch (Alarm2)
+              if(mittwoch_alarm2_memory==true)
+              {
+                mittwoch_alarm2_memory=false;
+              } else if (mittwoch_alarm2_memory==false)
+              {
+                mittwoch_alarm2_memory=true;
+              } 
+            break;
+          case 0x0C: //Donnerstag (Alarm2)
+              if(donnerstag_alarm2_memory==true)
+              {
+                donnerstag_alarm2_memory=false;
+              } else if (donnerstag_alarm2_memory==false)
+              {
+                donnerstag_alarm2_memory=true;
+              } 
+            break;
+          case 0x0F: //Freitag (Alarm2)
+              if(freitag_alarm2_memory==true)
+              {
+                freitag_alarm2_memory=false;
+              } else if (freitag_alarm2_memory==false)
+              {
+                freitag_alarm2_memory=true;
+              } 
+            break;
+          case 0x0E:  //Samstag (Alarm2)
+              if(samstag_alarm2_memory==true)
+              {
+                samstag_alarm2_memory=false;
+              } else if (samstag_alarm2_memory==false)
+              {
+                samstag_alarm2_memory=true;
+              } 
+            break;
+          case 0x10: //Sonntag (Alarm2)
+              if(sonntag_alarm2_memory==true)
+              {
+                sonntag_alarm2_memory=false;
+              } else if (sonntag_alarm2_memory==false)
+              {
+                sonntag_alarm2_memory=true;
+              } 
+            break;
+
+          case 0x23: //Alarm 1 Ein/Aus
+              if(alarm1_ein_memory==true)
+              {
+                rtc.clearAlarm(1);
+                alarm1_ein_memory=false;
+                Serial.println("Alarm1 aus");
+              } else //if (alarm1_ein_memory==false)
+              {
+                rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day);
+                
+                alarm1_ein_memory=true;
+                Serial.println("Alarm1 ein");
+              } 
+            break;
+          case 0x24: //Alarm 2 Ein/Aus
+              if(alarm2_ein_memory==true)
+              {
+                rtc.clearAlarm(1);
+                alarm2_ein_memory=false;
+                Serial.println("Alarm2 aus");
+              } else //if (alarm2_ein_memory==false)
+              {
+                rtc.setAlarm2(DateTime(now.year(), now.month(), now.day(), alarm2_stunde_memory, alarm2_minute_memory, 0), DS3231_A2_Day);
+                alarm2_ein_memory=true;
+                Serial.println("Alarm2 ein");
+              } 
+            break;
+          default:
+            break;
+        }
+        HMI_Input_loeschen(hmi_input); 
+  break;
+  #pragma endregion
+
+  case 8:
+    if(hmi_input[2]==1){
+      Signalgeber(false);
+      page=0;
+      rtc.clearAlarm(1);
+      rtc.clearAlarm(2);
+      activAlarm=false;
+    }
+  break;
+
+
+  
+//Interrupt Service Routine - This routine is performed when a falling edge on the 1Hz SQW clock from the RTC is detected
+void ISR_RTC () {
+    flanke_rtc_sqw = false; //A falling edge was detected on the SQWinput pin.  Now set EDGE equal to 0.
+}
