@@ -603,7 +603,6 @@ void displayTime (bool uhr_einstellen) {
     sprintf(stunde, "%s:%s:%s", stunde, minute, sekunde);
 
     Serielle_Textausgabe("m01.txt=", w_tag);
-    Serielle_Textausgabe("m01.txt=", w_tag);
     Serielle_Textausgabe("m02.txt=", tag);
     Serielle_Textausgabe("m03.txt=", stunde);
     dtostrf(rtc.getTemperature(), 6, 2, temperatur);
@@ -873,7 +872,7 @@ void Signalgeber(bool ton_an)
 void Serielle_Textausgabe(const char* textbox, const char* text)
 {
   const char* cmd="\"";
-  for(int i=0;i<1;i++){
+  for(int i=0;i<2;i++){
       Serial.print(textbox);
       Serial.print(cmd);
       Serial.print(text);
