@@ -162,7 +162,7 @@ switch (hmi_input[1])
       
         switch (hmi_input[2])
         {
-          case 0x14: //Alarm 1Stunde verringern(1, 0, 23,...)
+          case 0x13: //Alarm 1Stunde verringern(1, 0, 23,...)
             alarm1_stunde_memory--;
             if(alarm1_stunde_memory<0){
             alarm1_stunde_memory=23;
@@ -170,7 +170,7 @@ switch (hmi_input[1])
             sprintf(alarm1_stunde, "%02d", alarm1_stunde_memory);
             Serielle_Textausgabe("a10.txt=",alarm1_stunde);
             break;
-          case 0x12: //Alarm 1 Stunde erhöhen (1, 2, 3,...)
+          case 0x11: //Alarm 1 Stunde erhöhen (1, 2, 3,...)
             alarm1_stunde_memory++;
             if(alarm1_stunde_memory>23){
             alarm1_stunde_memory=0;
@@ -179,7 +179,7 @@ switch (hmi_input[1])
             Serielle_Textausgabe("a10.txt=",alarm1_stunde);
             break; 
 
-          case 0x17: //Alarm 1 Minute verringern(1, 59, 58,...)
+          case 0x16: //Alarm 1 Minute verringern(1, 59, 58,...)
             alarm1_minute_memory--;
             if(alarm1_minute_memory<1){
             alarm1_minute_memory=59;
@@ -187,7 +187,7 @@ switch (hmi_input[1])
             sprintf(alarm1_minute, "%02d", alarm1_minute_memory);
             Serielle_Textausgabe("a12.txt=",alarm1_minute);
             break;
-          case 0x15: //Alarm 1 Minute erhöhen (1, 2, 3,...)
+          case 0x14: //Alarm 1 Minute erhöhen (1, 2, 3,...)
             alarm1_minute_memory++;
             if(alarm1_minute_memory>59){
             alarm1_minute_memory=0;
@@ -196,29 +196,29 @@ switch (hmi_input[1])
             Serielle_Textausgabe("a12.txt=",alarm1_minute);
             break;
 
-          case 0x04: //Montag (Alarm1)
+          case 0x03: //Montag (Alarm1)
               montag_alarm1_memory=!montag_alarm1_memory; 
             break;
-          case 0x05: //Dienstag (Alarm1)
+          case 0x04: //Dienstag (Alarm1)
               dienstag_alarm1_memory=!dienstag_alarm1_memory;    
             break;
-          case 0x07: //Mittwoch (Alarm1)
+          case 0x06: //Mittwoch (Alarm1)
               mittwoch_alarm1_memory=!mittwoch_alarm1_memory; 
             break;
-          case 0x06: //Donnerstag (Alarm1)
+          case 0x05: //Donnerstag (Alarm1)
               donnerstag_alarm1_memory=!donnerstag_alarm1_memory;
             break;
-          case 0x09: //Freitag (Alarm1)
+          case 0x08: //Freitag (Alarm1)
               freitag_alarm1_memory=!freitag_alarm1_memory;
             break;
-          case 0x08:  //Samstag (Alarm1)
+          case 0x07:  //Samstag (Alarm1)
               samstag_alarm1_memory=!samstag_alarm1_memory;
             break;
-          case 0x0A: //Sonntag (Alarm1)
+          case 0x09: //Sonntag (Alarm1)
               sonntag_alarm1_memory=!sonntag_alarm1_memory;
             break;
 
-          case 0x1C: //Alarm 2 Stunde verringern(1, 0, 23,...)
+          case 0x1B: //Alarm 2 Stunde verringern(1, 0, 23,...)
             alarm2_stunde_memory--;
             if(alarm2_stunde_memory<0){
             alarm2_stunde_memory=23;
@@ -226,7 +226,7 @@ switch (hmi_input[1])
             sprintf(alarm2_stunde, "%02d", alarm2_stunde_memory);
             Serielle_Textausgabe("a17.txt=",alarm2_stunde);
             break;
-          case 0x1E: //Alarm 2 Stunde erhöhen (1, 2, 3,...)
+          case 0x1D: //Alarm 2 Stunde erhöhen (1, 2, 3,...)
             alarm2_stunde_memory++;
             if(alarm2_stunde_memory>23){
             alarm2_stunde_memory=0;
@@ -235,7 +235,7 @@ switch (hmi_input[1])
             Serielle_Textausgabe("a17.txt=",alarm2_stunde);
             break; 
 
-          case 0x19: //Alarm 2 Minute verringern(1, 59, 58,...)
+          case 0x18: //Alarm 2 Minute verringern(1, 59, 58,...)
             alarm2_minute_memory--;
             if(alarm2_minute_memory<1){
             alarm2_minute_memory=59;
@@ -243,7 +243,7 @@ switch (hmi_input[1])
             sprintf(alarm2_minute, "%02d", alarm2_minute_memory);
             Serielle_Textausgabe("a19.txt=",alarm2_minute);
             break;
-          case 0x1B: //Alarm 2 Minute erhöhen (1, 2, 3,...)
+          case 0x1A: //Alarm 2 Minute erhöhen (1, 2, 3,...)
             alarm2_minute_memory++;
             if(alarm2_minute_memory>59){
             alarm2_minute_memory=0;
@@ -252,29 +252,29 @@ switch (hmi_input[1])
             Serielle_Textausgabe("a19.txt=",alarm2_minute);
             break;
 
-          case 0x0B: //Montag (Alarm2)
+          case 0x0A: //Montag (Alarm2)
               montag_alarm2_memory=!montag_alarm2_memory;
             break;
-          case 0x0C: //Dienstag (Alarm2)
+          case 0x0B: //Dienstag (Alarm2)
               dienstag_alarm2_memory=!dienstag_alarm2_memory;     
             break;
-          case 0x0E: //Mittwoch (Alarm2)
+          case 0x0D: //Mittwoch (Alarm2)
               mittwoch_alarm2_memory=!mittwoch_alarm2_memory;
             break;
-          case 0x0D: //Donnerstag (Alarm2)
+          case 0x0C: //Donnerstag (Alarm2)
               donnerstag_alarm2_memory=!donnerstag_alarm2_memory;
             break;
-          case 0x10: //Freitag (Alarm2)
+          case 0x0F: //Freitag (Alarm2)
               freitag_alarm2_memory=!freitag_alarm2_memory; 
             break;
-          case 0x0F:  //Samstag (Alarm2)
+          case 0x0E:  //Samstag (Alarm2)
               samstag_alarm2_memory=!samstag_alarm2_memory;
             break;
-          case 0x11: //Sonntag (Alarm2)
+          case 0x10: //Sonntag (Alarm2)
               sonntag_alarm2_memory=!sonntag_alarm2_memory;
             break;
 
-          case 0x2F: //Alarm 1 Ein/Aus
+          case 0x23: //Alarm 1 Ein/Aus
               if(alarm1_ein_memory==true)
               {
                 rtc.clearAlarm(1);
@@ -284,7 +284,7 @@ switch (hmi_input[1])
                 alarm1_ein_memory=true;
               } 
             break;
-          case 0x30: //Alarm 2 Ein/Aus
+          case 0x24: //Alarm 2 Ein/Aus
               if(alarm2_ein_memory==true)
               {
                 rtc.clearAlarm(2);
@@ -293,20 +293,6 @@ switch (hmi_input[1])
               {
                 alarm2_ein_memory=true;
               } 
-            break;
-          case 0x03: //Alarm aus
-                if(rtc.alarmFired(1)){
-                  rtc.clearAlarm(1);  //Alarm ausschalten
-                }
-                if(rtc.alarmFired(2)){
-                  rtc.clearAlarm(2);  //Alarm ausschalten
-                }
-                if(rtc.alarmFired(1) && rtc.alarmFired(2)){
-                  rtc.clearAlarm(1);  //Alarm ausschalten
-                  rtc.clearAlarm(2);  //Alarm ausschalten
-                }
-              
-                noTone(4);  //Signalton ausschalten
             break;
 
             default:
