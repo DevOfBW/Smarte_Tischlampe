@@ -56,7 +56,7 @@ int8_t alarm1_minute_memory;
 int8_t alarm1_stunde_memory;
 int8_t alarm2_minute_memory;
 int8_t alarm2_stunde_memory;
-
+bool alarm_fired=false;
 
 // Funktionen:
 uint8_t RGB_Licht_Funktion(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, bool, bool); //(Pixel,R,G,B,Helligkeit,Modus,Hauptleuchte_an,Indirektebeleuchtung_an)
@@ -64,6 +64,7 @@ void Signalgeber(bool); //(An/Aus)
 uint8_t Gestensensor(); //Gestensensor
 int LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(const char*, const char*); //Textausgabe zum HMI
+void Serielle_Textausgabe2(const char*); //Textausgabe zum HMI
 void displayTime (bool, DateTime); //Ausgabe der aktuellen Zeit
 void HMI_Input_loeschen(char*);
 
@@ -163,15 +164,15 @@ switch (hmi_input[1])
         switch (hmi_input[2])
         {
           case 0x13: //Alarm 1Stunde verringern(1, 0, 23,...)
-            alarm1_stunde_memory--;
+            --alarm1_stunde_memory;
             if(alarm1_stunde_memory<0){
-            alarm1_stunde_memory=23;
+              alarm1_stunde_memory=23;
             }
             sprintf(alarm1_stunde, "%02d", alarm1_stunde_memory);
             Serielle_Textausgabe("a10.txt=",alarm1_stunde);
             break;
           case 0x11: //Alarm 1 Stunde erhöhen (1, 2, 3,...)
-            alarm1_stunde_memory++;
+            ++alarm1_stunde_memory;
             if(alarm1_stunde_memory>23){
             alarm1_stunde_memory=0;
             }
@@ -180,15 +181,15 @@ switch (hmi_input[1])
             break; 
 
           case 0x16: //Alarm 1 Minute verringern(1, 59, 58,...)
-            alarm1_minute_memory--;
-            if(alarm1_minute_memory<1){
+            --alarm1_minute_memory;
+            if(alarm1_minute_memory<0){
             alarm1_minute_memory=59;
             }
             sprintf(alarm1_minute, "%02d", alarm1_minute_memory);
             Serielle_Textausgabe("a12.txt=",alarm1_minute);
             break;
           case 0x14: //Alarm 1 Minute erhöhen (1, 2, 3,...)
-            alarm1_minute_memory++;
+            ++alarm1_minute_memory;
             if(alarm1_minute_memory>59){
             alarm1_minute_memory=0;
             }
@@ -219,7 +220,7 @@ switch (hmi_input[1])
             break;
 
           case 0x1B: //Alarm 2 Stunde verringern(1, 0, 23,...)
-            alarm2_stunde_memory--;
+            --alarm2_stunde_memory;
             if(alarm2_stunde_memory<0){
             alarm2_stunde_memory=23;
             }
@@ -227,7 +228,7 @@ switch (hmi_input[1])
             Serielle_Textausgabe("a17.txt=",alarm2_stunde);
             break;
           case 0x1D: //Alarm 2 Stunde erhöhen (1, 2, 3,...)
-            alarm2_stunde_memory++;
+            ++alarm2_stunde_memory;
             if(alarm2_stunde_memory>23){
             alarm2_stunde_memory=0;
             }
@@ -236,15 +237,15 @@ switch (hmi_input[1])
             break; 
 
           case 0x18: //Alarm 2 Minute verringern(1, 59, 58,...)
-            alarm2_minute_memory--;
-            if(alarm2_minute_memory<1){
+            --alarm2_minute_memory;
+            if(alarm2_minute_memory<0){
             alarm2_minute_memory=59;
             }
             sprintf(alarm2_minute, "%02d", alarm2_minute_memory);
             Serielle_Textausgabe("a19.txt=",alarm2_minute);
             break;
           case 0x1A: //Alarm 2 Minute erhöhen (1, 2, 3,...)
-            alarm2_minute_memory++;
+            ++alarm2_minute_memory;
             if(alarm2_minute_memory>59){
             alarm2_minute_memory=0;
             }
@@ -430,6 +431,18 @@ switch (hmi_input[1])
   case 6: //Farbmix-page
       HMI_Input_loeschen(hmi_input);
   break;
+  
+  case 8:
+    alarm_fired=false;
+    if(rtc.alarmFired(1)){
+      rtc.clearAlarm(1);
+    }
+    if(rtc.alarmFired(2)){
+      rtc.clearAlarm(2);
+    }
+    Signalgeber(false);
+    
+    break;
 
 default:
   break;
@@ -470,10 +483,18 @@ if(anzeige_zeit==100){
 displayTime (false, now);
   if(rtc.alarmFired(1) && alarm1_ein_memory==true)
   {
+    if(!alarm_fired){
+      Serielle_Textausgabe2("page 8");
+      alarm_fired=true;
+    }
     Signalgeber(true);
   }
   if(rtc.alarmFired(2) && alarm2_ein_memory==true)
   {
+    if(!alarm_fired){
+      Serielle_Textausgabe2("page 8");
+      alarm_fired=true;
+    }
     Signalgeber(true);
   }
 }
@@ -560,7 +581,7 @@ int LDR_Messung()
 void Serielle_Textausgabe(const char* textbox, const char* text)
 {
   const char* cmd="\"";
-  for(int i=0;i<=2;i++){
+  for(int i=0;i<2;i++){
       Serial.print(textbox);
       Serial.print(cmd);
       Serial.print(text);
@@ -570,6 +591,17 @@ void Serielle_Textausgabe(const char* textbox, const char* text)
       Serial.write(0xFF);
   }
 }
+
+void Serielle_Textausgabe2(const char* textbox)
+{
+  for(int i=0;i<2;i++){
+      Serial.print(textbox);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+  }
+}
+
 
 uint8_t Gestensensor()
 {
