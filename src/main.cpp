@@ -366,6 +366,11 @@ switch (hmi_input[1])
           break;
         case 0x06:  //Gestensensor aktiv?
           gestureActive=!gestureActive;
+          if(gestureActive){
+            sensor.enable();
+          }else{
+            sensor.disable();
+          }
 
           break;
         default:
@@ -558,15 +563,16 @@ default:
       partymodus();
     }
 
-    if(gestureActive){
-      if(Gestensensor()==1){
-        Serial.println("Geste");
-      } 
-    }
+    
   }
   anzeige_zeit++;
 
-  
+  if(gestureActive){
+      if(Gestensensor()==1){
+        Serial.println("Geste");
+        delay(100);
+      }
+    }
 }
 
 void HMI_Input_loeschen(char* HMI_Input_array)
@@ -758,6 +764,7 @@ uint8_t Gestensensor()
           Signalgeber(false);
           DisplayCommand("page 0");
           page=0;
+          return 1;
         break;
       }
 
@@ -783,6 +790,7 @@ uint8_t Gestensensor()
             hauptleuchte_an=true;
             indirektebeleuchtung_an=true;
           }
+          refreshColours();
           refreshColours();
           return 1;
         break;
