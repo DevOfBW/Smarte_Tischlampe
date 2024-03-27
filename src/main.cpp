@@ -57,6 +57,8 @@ int8_t alarm1_stunde_memory;
 int8_t alarm2_minute_memory;
 int8_t alarm2_stunde_memory;
 bool alarm_fired=false;
+int8_t alarm1_timeout;
+int8_t alarm2_timeout;
 
 // Funktionen:
 uint8_t RGB_Licht_Funktion(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, bool, bool); //(Pixel,R,G,B,Helligkeit,Modus,Hauptleuchte_an,Indirektebeleuchtung_an)
@@ -283,6 +285,10 @@ switch (hmi_input[1])
               } else if (alarm1_ein_memory==false)
               {
                 alarm1_ein_memory=true;
+                alarm1_timeout = alarm1_minute_memory + 3;
+                if(alarm1_timeout>59){
+                  alarm1_timeout = alarm1_timeout - 60;
+                }
               } 
             break;
           case 0x24: //Alarm 2 Ein/Aus
@@ -293,6 +299,10 @@ switch (hmi_input[1])
               } else if (alarm2_ein_memory==false)
               {
                 alarm2_ein_memory=true;
+                alarm2_timeout = alarm2_minute_memory + 3;
+                if(alarm2_timeout>59){
+                  alarm2_timeout = alarm2_timeout - 60;
+                }
               } 
             break;
 
@@ -488,6 +498,12 @@ displayTime (false, now);
       alarm_fired=true;
     }
     Signalgeber(true);
+    if(now.minute()==alarm1_timeout){
+      rtc.clearAlarm(1);
+      alarm_fired=false;
+      Serielle_Textausgabe2("page 0");
+      Signalgeber(false);
+    }
   }
   if(rtc.alarmFired(2) && alarm2_ein_memory==true)
   {
@@ -496,6 +512,12 @@ displayTime (false, now);
       alarm_fired=true;
     }
     Signalgeber(true);
+    if(now.minute()==alarm2_timeout){
+      rtc.clearAlarm(2);
+      alarm_fired=false;
+      Serielle_Textausgabe2("page 0");
+      Signalgeber(false);
+    }
   }
 }
 anzeige_zeit++;
