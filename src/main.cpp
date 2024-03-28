@@ -45,6 +45,9 @@ uint8_t activeLamp=1; //0 beide aus; 1 Haupt; 2 Neben
 uint8_t red,green,blue,bright;
 bool showCurrentTime=false;
 
+char tag[6], monat[4], jahr[6], stunde[4], minute[4], sekunde[4], temperatur[8], w_tag[4];
+char sendingBuffer[20];
+
 //TODO: Können die Bool-Werte nicht einfacher in zwei Integern gespeichert werden? Wäre auch leichter zu verstehen.
 char hmi_input [7]={};    //Es werden 4 char benötigt, da wir 4 Datensätze pro Button übertragen, um diesen zu identifizieren
 
@@ -54,9 +57,9 @@ char hmi_input [7]={};    //Es werden 4 char benötigt, da wir 4 Datensätze pro
 void Signalgeber(bool); //(An/Aus)
 uint8_t Gestensensor(); //Gestensensor
 uint8_t LDR_Messung(); //LDR Messung zwischen 0 und 1023
-void Serielle_Textausgabe(const char*, const char*); //Textausgabe zum HMI
+void sentTextState(const char*, const char*); //Textausgabe zum HMI
 void DisplayCommand(const char*);
-
+void clearCharArray(const char*);
 void displayTime (bool); //Ausgabe der aktuellen Zeit
 void HMI_Input_loeschen(char*);
 boolean setModusActive(int);
@@ -83,12 +86,17 @@ Adafruit_NeoPixel main_light(main_light_count,main_light_pin, NEO_GRB + NEO_KHZ8
 RevEng_PAJ7620 sensor = RevEng_PAJ7620();
 
 // TODO: Alle Displayelemente und die Funktionen extrahieren
+const char roterSlider[4]="p01";
+const char gruenerSlider[4]="p03";
+const char blauerSlider[4]="p05";
+const char hellerSlider[4]="p07";
+const char lichtText[4]="l06";
 
 //Displayelemente
-NexSlider p01 = NexSlider(6, 1, "p01"); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
-NexSlider p03 = NexSlider(6, 4, "p03"); //Slider gruen
-NexSlider p05 = NexSlider(6, 6, "p05"); //Slider blau
-NexSlider p07 = NexSlider(6, 8, "p07");  //Slider helligkeit
+NexSlider p01 = NexSlider(6, 1, roterSlider); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
+NexSlider p03 = NexSlider(6, 4, gruenerSlider); //Slider gruen
+NexSlider p05 = NexSlider(6, 6, blauerSlider); //Slider blau
+NexSlider p07 = NexSlider(6, 8, hellerSlider);  //Slider helligkeit
 
 // DisplayFunctions
 
@@ -159,7 +167,7 @@ void b_switch_lsPopCallback(){
     default: 
         break;
   }
-  Serielle_Textausgabe("p10.txt=",text);
+  sentTextState("p10",text);
   sendValue("p09",0);
   refreshColours();
   //delay(10);
@@ -171,13 +179,13 @@ void b_switch_lsPopCallback(){
   //delay(10);
   sendValue("p04",green);
   //delay(10);
-  sendValue("p07",bright);
+  sendValue(hellerSlider,bright);
   //delay(10);
-  sendValue("p01",red);
+  sendValue(roterSlider,red);
   //delay(10);
-  sendValue("p05",blue);
+  sendValue(blauerSlider,blue);
   //delay(10);
-  sendValue("p03",green);
+  sendValue(gruenerSlider,green);
   refreshColours();
 }
 
@@ -189,20 +197,16 @@ void b_mixco_lkPopCallback(){
 void r_hauptle_lkPopCallback(){
   hauptleuchte_an=!hauptleuchte_an;
   refreshColours();
-  delay(10);
-  refreshColours();
 }
 
 void r_indirektb_lkPopCallback(){
   indirektebeleuchtung_an=!indirektebeleuchtung_an;
   refreshColours();
-  delay(10);
-  refreshColours();
 }
 //Wecker + Uhrzeit
 RTC_DS3231 rtc;
 char wochentage[7][3] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
-char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"}; 
+//char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"}; 
 
 
 // Setupmethode, diese Methode beeinhaltet alle Grundeinstellungen z.B. ob ein Kanal ein Eingang oder Ausgang ist. 
@@ -391,7 +395,6 @@ switch (hmi_input[1])
 
 
   case 5: //Uhr-Konfig-page
-      //DateTime now = rtc.now();
       static int8_t tag_memory=now.day();
       char tag[3];
       static int8_t monat_memory=now.month();
@@ -414,7 +417,7 @@ switch (hmi_input[1])
         tag_memory=31;
         }
         sprintf(tag, "%02d", tag_memory);
-        Serielle_Textausgabe("u05.txt=",tag);
+        sentTextState("u05",tag);
         break;
       case 0x0A: //Tag erhöhen (1, 2, 3,...)
         tag_memory++;
@@ -422,7 +425,7 @@ switch (hmi_input[1])
         tag_memory=1;
         }
         sprintf(tag, "%02d", tag_memory);
-        Serielle_Textausgabe("u05.txt=",tag);
+        sentTextState("u05",tag);
         break;
 
       case 0x0F: //Monat verringern(1, 12, 1,...)
@@ -431,7 +434,7 @@ switch (hmi_input[1])
         monat_memory=12;
         }
         sprintf(monat, "%02d", monat_memory);
-        Serielle_Textausgabe("u08.txt=",monat);
+        sentTextState("u08",monat);
         break;
       case 0x0D: //Monat erhöhen (1, 2, 3,...)
         monat_memory++;
@@ -439,7 +442,7 @@ switch (hmi_input[1])
         monat_memory=1;
         }
         sprintf(monat, "%02d", monat_memory);
-        Serielle_Textausgabe("u08.txt=",monat);
+        sentTextState("u08",monat);
         break;
 
       case 0x12: //Jahr verringern
@@ -448,7 +451,7 @@ switch (hmi_input[1])
         jahr_memory=9999;
         }
         sprintf(jahr, "%04d", jahr_memory);
-        Serielle_Textausgabe("u11.txt=",jahr);
+        sentTextState("u11",jahr);
         break;
       case 0x10: //Jahr erhöhen 
         jahr_memory++;
@@ -456,7 +459,7 @@ switch (hmi_input[1])
         jahr_memory=1;
         }
         sprintf(jahr, "%04d", jahr_memory);
-        Serielle_Textausgabe("u11.txt=",jahr);
+        sentTextState("u11",jahr);
         break;
 
       case 0x15: //Stunde verringern(1, 0, 23,...)
@@ -465,7 +468,7 @@ switch (hmi_input[1])
         stunde_memory=23;
         }
         sprintf(stunde, "%02d", stunde_memory);
-        Serielle_Textausgabe("u14.txt=",stunde);
+        sentTextState("u14",stunde);
         break;
       case 0x13: //Stunde erhöhen (1, 2, 3,...)
         stunde_memory++;
@@ -473,7 +476,7 @@ switch (hmi_input[1])
         stunde_memory=0;
         }
         sprintf(stunde, "%02d", stunde_memory);
-        Serielle_Textausgabe("u14.txt=",stunde);
+        sentTextState("u14",stunde);
         break; 
 
       case 0x18: //Minute verringern(1, 59, 58,...)
@@ -482,7 +485,7 @@ switch (hmi_input[1])
         minute_memory=59;
         }
         sprintf(minute, "%02d", minute_memory);
-        Serielle_Textausgabe("u18.txt=",minute);
+        sentTextState("u18",minute);
         break;
       case 0x16: //Minute erhöhen (1, 2, 3,...)
         minute_memory++;
@@ -490,7 +493,7 @@ switch (hmi_input[1])
         minute_memory=0;
         }
         sprintf(minute, "%02d", minute_memory);
-        Serielle_Textausgabe("u18.txt=",minute);
+        sentTextState("u18",minute);
         break;
 
       case 0x04: //Speichern
@@ -570,7 +573,6 @@ default:
   if(gestureActive){
       if(Gestensensor()==1){
         Serial.println("Geste");
-        delay(100);
       }
     }
 }
@@ -586,7 +588,6 @@ void HMI_Input_loeschen(char* HMI_Input_array)
 void displayTime (bool uhr_einstellen) {
   //TODO: übergabeparameter kann entfernt werden, kann immer angezeigt werden in den feldern
   DateTime now = rtc.now();
-  char tag[6], monat[4], jahr[6], stunde[4], minute[4], sekunde[4], temperatur[8], w_tag[4];
 
   // Umwandlung der Zahlen in Char-Arrays
   sprintf(jahr, "%04d", now.year());
@@ -598,22 +599,27 @@ void displayTime (bool uhr_einstellen) {
   strcpy(w_tag, wochentage[now.dayOfTheWeek()]);
   
   if(uhr_einstellen){
-    Serielle_Textausgabe("u05.txt=",tag);
-    Serielle_Textausgabe("u08.txt=",monat);
-    Serielle_Textausgabe("u11.txt=",jahr);
-    Serielle_Textausgabe("u14.txt=",stunde);
-    Serielle_Textausgabe("u18.txt=",minute);
+    sentTextState("u05",tag);
+    sentTextState("u08",monat);
+    sentTextState("u11",jahr);
+    sentTextState("u14",stunde);
+    sentTextState("u18",minute);
   }else{
     // Verkettung der Char-Arrays um Datum und die komplette Uhrzeit darzustellen
-    sprintf(tag, "%s.%s.%s", tag, monat, jahr);
-    sprintf(stunde, "%s:%s:%s", stunde, minute, sekunde);
+    sentTextState("m01", w_tag);
+    
+    memset(&sendingBuffer[0], 0, sizeof(sendingBuffer));
+    sprintf(sendingBuffer, "%s.%s.%s", tag, monat, jahr);
+    sentTextState("m02", sendingBuffer);
 
-    Serielle_Textausgabe("m01.txt=", w_tag);
-    Serielle_Textausgabe("m02.txt=", tag);
-    Serielle_Textausgabe("m03.txt=", stunde);
+    memset(&sendingBuffer[0], 0, sizeof(sendingBuffer));
+    sprintf(sendingBuffer, "%s:%s:%s", stunde, minute, sekunde);
+    sentTextState("m03", sendingBuffer);
+
     dtostrf(rtc.getTemperature(), 6, 2, temperatur);
-    sprintf(temperatur, "%s Grad C", temperatur);
-    Serielle_Textausgabe("m04.txt=", temperatur);
+    memset(&sendingBuffer[0], 0, sizeof(sendingBuffer));
+    sprintf(sendingBuffer, "%s Grad C", temperatur);
+    sentTextState("m04", sendingBuffer);
   }
   
 }
@@ -647,23 +653,23 @@ boolean setModusActive(int newMod){
       green=255;
       blue=255;
       bright=255;
-      Serielle_Textausgabe("l06.txt=","Lernen"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      sentTextState(lichtText,"Lernen"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       break;
     case 2: //Entspannungslicht (Relax)
       red=241;
       green=142;
       blue=28;
       bright=255;
-      Serielle_Textausgabe("l06.txt=","Relax"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      sentTextState(lichtText,"Relax"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       break;
     case 4: //Party
-      Serielle_Textausgabe("l06.txt=","Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      sentTextState(lichtText,"Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       break;
     case 3: //Farben mix
-      Serielle_Textausgabe("l06.txt=","Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      sentTextState(lichtText,"Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       break;
     case 6: //Lichtabhängige Lichtansteuerung (Automatik)
-      Serielle_Textausgabe("l06.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      sentTextState(lichtText,"Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       red=255;
       green=255;
       blue=255;
@@ -729,10 +735,10 @@ void partymodus(){
 
 uint8_t LDR_Messung()
 {
-  char val[2];
+  char val[3];
   helligkeit = analogRead(0); //Werte zwischen 0 und 1024
   sprintf(val, "%02d", helligkeit);
-  Serielle_Textausgabe("l06.txt=",val);
+  sentTextState(lichtText,val);
   //TODO: Bereiche anpassen, indem die Helligkeit gemessen wird.
   if(helligkeit>750){
     return 240;
@@ -877,18 +883,11 @@ void Signalgeber(bool ton_an)
 }
 
 
-void Serielle_Textausgabe(const char* textbox, const char* text)
+void sentTextState(const char* textbox, const char* text)
 {
-  const char* cmd="\"";
-  for(int i=0;i<2;i++){
-      Serial.print(textbox);
-      Serial.print(cmd);
-      Serial.print(text);
-      Serial.print(cmd);
-      Serial.write(0xFF);
-      Serial.write(0xFF);
-      Serial.write(0xFF);
-  }
+  memset(&sendingBuffer[0], 0, sizeof(sendingBuffer));
+  sprintf(sendingBuffer, "%s%s%s%s", textbox, ".txt=\"", text,"\"");
+  DisplayCommand(sendingBuffer);
 }
 
 void DisplayCommand(const char* textbox)
@@ -902,15 +901,9 @@ void DisplayCommand(const char* textbox)
 }
 
 void sendValue(const char* object, uint8_t value){
-  char buf[2];
+  char buf[3];
   sprintf(buf, "%02d", value);
-  for(int i=0;i<2;i++){
-      Serial.print(object);
-      Serial.print(".val=");
-      Serial.print(buf);
-      Serial.write(0xFF);
-      Serial.write(0xFF);
-      Serial.write(0xFF);
-  }
+  memset(&sendingBuffer[0], 0, sizeof(sendingBuffer));
+  sprintf(sendingBuffer, "%s%s%s", object, ".val=", buf);
+  DisplayCommand(sendingBuffer);
 }
-
