@@ -20,7 +20,7 @@
 #define main_light_pin 3
 #define PIN_schalter 7
 #define PIN_summer 4 //Pin an dem der Summer angeschlossen ist
-#define PIN_SQW 2
+//#define PIN_SQW 2
 //const byte PIN_SQW = 2; //Interruptpin RTC -> SQW pin is used to monitor the SQW 1Hz output from the DS3231
 bool flanke_rtc_sqw; //A variable to store when a falling 1Hz clock edge has occured on the SQW pin of the DS3231
 uint16_t helligkeit; //Wird benötigt für die LDR-Messung
@@ -70,6 +70,8 @@ int8_t alarm2_minute_memory;
 int8_t alarm2_stunde_memory;
 bool activAlarm=false;
 
+const char AusgabeFeld[9]="l06.txt=";
+
 
 // Funktionen:
 void Signalgeber(bool); //(An/Aus)
@@ -77,7 +79,7 @@ uint8_t Gestensensor(); //Gestensensor
 uint8_t LDR_Messung(); //LDR Messung zwischen 0 und 1023
 void Serielle_Textausgabe(const char*, const char*); //Textausgabe zum HMI
 void Serielle_Textausgabe2(const char*);
-void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
+//void ISR_RTC ();  //Interrupt Service routine von RTC modul ausgelöst durch SQW
 void displayTime (bool); //Ausgabe der aktuellen Zeit
 void HMI_Input_loeschen(char*);
 boolean setModusActive(int);
@@ -274,21 +276,12 @@ void setup()
     //TODO: Implementieren auf Touchdisplay evtl. sichtbar
      Serial.println("RTC lost power, let's set the time!");
   }
-  rtc.writeSqwPinMode(DS3231_SquareWave1Hz);   //Configure SQW pin on the DS3231 to output a 1Hz squarewave to Arduino pin 2 (SQWinput) for timing
-  pinMode(PIN_SQW, INPUT); //Configure the SQWinput pin as an INPUT to monitor the SQW pin of the DS3231.
-  digitalWrite (PIN_SQW, HIGH); //Enable the internal pull-up resistor, since the SQW pin on the DS3231 is an Open Drain output.
-  attachInterrupt(digitalPinToInterrupt(PIN_SQW), ISR_RTC, FALLING); //Configure SQWinput (pin 2 of the Arduino) for use by the Interrupt Service Routine (Isr)
-  flanke_rtc_sqw = true; //Initialize EDGE equal to 1. The Interrupt Service Routine will make EDGE equal to zero when triggered by a falling clock edge on SQW
-
   //Alarm (Wecker)
-  //rtc.disableAlarm(1);
-  //rtc.disableAlarm(2);
+  rtc.disableAlarm(1);
+  rtc.disableAlarm(2);
   rtc.clearAlarm(1);
   rtc.clearAlarm(2);  
   rtc.writeSqwPinMode(DS3231_OFF);
-
-  //TODO: nur zum Testen
-  rtc.setAlarm1(DateTime(2024, 3, 23, 9, 52, 0), DS3231_A1_Hour);
 }
 
 
@@ -913,13 +906,6 @@ void HMI_Input_loeschen(char* HMI_Input_array)
       }
 }
 
-
-//Interrupt Service Routine - This routine is performed when a falling edge on the 1Hz SQW clock from the RTC is detected
-void ISR_RTC () {
-    flanke_rtc_sqw = false; //A falling edge was detected on the SQWinput pin.  Now set EDGE equal to 0.
-}
-
-
 void displayTime (bool uhr_einstellen) {
   //TODO: übergabeparameter kann entfernt werden, kann immer angezeigt werden in den feldern
   DateTime now = rtc.now();
@@ -985,23 +971,23 @@ boolean setModusActive(int newMod){
       green=255;
       blue=255;
       bright=255;
-      Serielle_Textausgabe("l06.txt=","Lernen"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      Serielle_Textausgabe(AusgabeFeld,"Lernen"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       break;
     case 2: //Entspannungslicht (Relax)
       red=241;
       green=142;
       blue=28;
       bright=255;
-      Serielle_Textausgabe("l06.txt=","Relax"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      Serielle_Textausgabe(AusgabeFeld,"Relax"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       break;
     case 4: //Party
-      Serielle_Textausgabe("l06.txt=","Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      Serielle_Textausgabe(AusgabeFeld,"Party"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       break;
     case 3: //Farben mix
-      Serielle_Textausgabe("l06.txt=","Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      Serielle_Textausgabe(AusgabeFeld,"Farbenmix"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       break;
     case 6: //Lichtabhängige Lichtansteuerung (Automatik)
-      Serielle_Textausgabe("l06.txt=","Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
+      Serielle_Textausgabe(AusgabeFeld,"Automatik"); //Ausgabetext in Textbox 1 auf der Seite Licht konfiguration (Seite2)
       red=255;
       green=255;
       blue=255;
@@ -1067,10 +1053,10 @@ void partymodus(){
 
 uint8_t LDR_Messung()
 {
-  char val[2];
+  char val[4];
   helligkeit = analogRead(0); //Werte zwischen 0 und 1024
   sprintf(val, "%02d", helligkeit);
-  Serielle_Textausgabe("l06.txt=",val);
+  Serielle_Textausgabe(AusgabeFeld,val);
   //helligkeit=(helligkeit>800)?800:helligkeit;
   //TODO: Bereiche anpassen, indem die Helligkeit gemessen wird.
   if(helligkeit>750){
