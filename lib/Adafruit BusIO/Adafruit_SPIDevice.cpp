@@ -1,5 +1,4 @@
 #include "Adafruit_SPIDevice.h"
-#include <SPI.h>
 
 //#define DEBUG_SERIAL Serial
 
