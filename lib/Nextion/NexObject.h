@@ -42,13 +42,6 @@ public: /* methods */
      */
     NexObject(uint8_t pid, uint8_t cid, const char *name);
 
-    /**
-     * Print current object'address, page id, component id and name. 
-     *
-     * @warning this method does nothing, unless debug message enabled. 
-     */
-    void printObjInfo(void);
-
 protected: /* methods */
 
     /*

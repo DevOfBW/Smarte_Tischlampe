@@ -22,15 +22,6 @@
 #include "NexTouch.h"
 #include "NexHardware.h"
 
-#include "NexCrop.h"
-#include "NexGauge.h"
-#include "NexHotspot.h"
-#include "NexPage.h"
-#include "NexProgressBar.h"
 #include "NexSlider.h"
-#include "NexWaveform.h"
-#include "NexTimer.h"
-#include "NexGpio.h"
-#include "NexRtc.h"
 
 #endif /* #ifndef __NEXTION_H__ */

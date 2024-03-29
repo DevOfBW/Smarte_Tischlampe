@@ -116,10 +116,10 @@ const char hellerSlider[4]="p07";
 const char lichtText[4]="l06";
 
 //Displayelemente
-NexSlider p01 = NexSlider(6, 1, roterSlider); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
-NexSlider p03 = NexSlider(6, 4, gruenerSlider); //Slider gruen
-NexSlider p05 = NexSlider(6, 6, blauerSlider); //Slider blau
-NexSlider p07 = NexSlider(6, 8, hellerSlider);  //Slider helligkeit
+NexSlider p01 = NexSlider(6, 1, "p01"); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
+NexSlider p03 = NexSlider(6, 4, "p03"); //Slider gruen
+NexSlider p05 = NexSlider(6, 6, "p05"); //Slider blau
+NexSlider p07 = NexSlider(6, 8, "p07");  //Slider helligkeit
 
 // DisplayFunctions
 
