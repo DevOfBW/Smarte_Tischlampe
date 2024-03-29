@@ -62,42 +62,6 @@ public: /* methods */
      */
     NexTouch(uint8_t pid, uint8_t cid, const char *name);
 
-    /**
-     * Attach an callback function of push touch event. 
-     *
-     * @param push - callback called with ptr when a push touch event occurs. 
-     * @param ptr - parameter passed into push[default:NULL]. 
-     * @return none. 
-     *
-     * @note If calling this method multiply, the last call is valid. 
-     */
-    void attachPush(NexTouchEventCb push, void *ptr = NULL);
-
-    /**
-     * Detach an callback function. 
-     * 
-     * @return none. 
-     */
-    void detachPush(void);
-
-    /**
-     * Attach an callback function of pop touch event. 
-     *
-     * @param pop - callback called with ptr when a pop touch event occurs. 
-     * @param ptr - parameter passed into pop[default:NULL]. 
-     * @return none. 
-     *
-     * @note If calling this method multiply, the last call is valid. 
-     */
-    void attachPop(NexTouchEventCb pop, void *ptr = NULL);
-
-    /**
-     * Detach an callback function. 
-     * 
-     * @return none. 
-     */
-    void detachPop(void);
-    
 private: /* methods */ 
     void push(void);
     void pop(void);

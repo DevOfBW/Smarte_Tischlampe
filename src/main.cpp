@@ -47,6 +47,7 @@ uint8_t red,green,blue,bright;
 char printDatum[11], printUhrzeit[9], printTemp[13];
 char tag[6], monat[4], jahr[6], stunde[4], minute[4], sekunde[4], temperatur[8], w_tag[4];
 char sendingBuffer[20];
+bool alarm1Woche[7] = {true, true, true, true, true, true, true};
 bool montag_alarm1_memory=true;
 bool montag_alarm2_memory=true;
 bool dienstag_alarm1_memory=true;
@@ -229,7 +230,6 @@ void r_indirektb_lkPopCallback(){
 //Wecker + Uhrzeit
 RTC_DS3231 rtc;
 char wochentage[7][3] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
-//char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"}; 
 
 
 // Setupmethode, diese Methode beeinhaltet alle Grundeinstellungen z.B. ob ein Kanal ein Eingang oder Ausgang ist. 
@@ -280,9 +280,9 @@ void setup()
   }
   //Alarm (Wecker)
   rtc.disableAlarm(1);
-  rtc.disableAlarm(2);
+  //rtc.disableAlarm(2);
   rtc.clearAlarm(1);
-  rtc.clearAlarm(2);  
+  //rtc.clearAlarm(2);  
   rtc.writeSqwPinMode(DS3231_OFF);
 }
 
@@ -384,8 +384,8 @@ switch (hmi_input[1])
   case 0x02: //Wecker-page
       char alarm1_stunde[4];
       char alarm1_minute[4];
-      char alarm2_stunde[4];
-      char alarm2_minute[4];
+      //char alarm2_stunde[4];
+      //char alarm2_minute[4];
       
         switch (hmi_input[2])
         {
@@ -427,28 +427,35 @@ switch (hmi_input[1])
             break;
 
           case 0x03: //Montag (Alarm1)
-              montag_alarm1_memory=!montag_alarm1_memory; 
+              alarm1Woche[1]=!alarm1Woche[1];
+              //montag_alarm1_memory=!montag_alarm1_memory; 
             break;
           case 0x04: //Dienstag (Alarm1)
-              dienstag_alarm1_memory=!dienstag_alarm1_memory;    
+              alarm1Woche[2]=!alarm1Woche[2];
+              //dienstag_alarm1_memory=!dienstag_alarm1_memory;    
             break;
           case 0x06: //Mittwoch (Alarm1)
-              mittwoch_alarm1_memory=!mittwoch_alarm1_memory; 
+              alarm1Woche[3]=!alarm1Woche[3];
+              //mittwoch_alarm1_memory=!mittwoch_alarm1_memory; 
             break;
           case 0x05: //Donnerstag (Alarm1)
-              donnerstag_alarm1_memory=!donnerstag_alarm1_memory;
+              alarm1Woche[4]=!alarm1Woche[4];
+              //donnerstag_alarm1_memory=!donnerstag_alarm1_memory;
             break;
           case 0x08: //Freitag (Alarm1)
-              freitag_alarm1_memory=!freitag_alarm1_memory;
+              alarm1Woche[5]=!alarm1Woche[5];
+              //freitag_alarm1_memory=!freitag_alarm1_memory;
             break;
           case 0x07:  //Samstag (Alarm1)
-              samstag_alarm1_memory=!samstag_alarm1_memory;
+              alarm1Woche[6]=!alarm1Woche[6];
+              //samstag_alarm1_memory=!samstag_alarm1_memory;
             break;
           case 0x09: //Sonntag (Alarm1)
-              sonntag_alarm1_memory=!sonntag_alarm1_memory;
+              alarm1Woche[0]=!alarm1Woche[0];
+              //sonntag_alarm1_memory=!sonntag_alarm1_memory;
             break;
 
-          
+          /*
           case 0x1B: //Alarm 2 Stunde verringern(1, 0, 23,...)
             --alarm2_stunde_memory;
             if(alarm2_stunde_memory<0){
@@ -504,7 +511,7 @@ switch (hmi_input[1])
           case 0x10: //Sonntag (Alarm2)
               sonntag_alarm2_memory=!sonntag_alarm2_memory;
             break;
-          
+          */
 
           case 0x23: //Alarm 1 Ein/Aus
               if(alarm1_ein_memory==true)
@@ -520,7 +527,7 @@ switch (hmi_input[1])
                 }
               } 
             break;
-          
+          /*
           case 0x24: //Alarm 2 Ein/Aus
               if(alarm2_ein_memory==true)
               {
@@ -535,11 +542,16 @@ switch (hmi_input[1])
                 }
               } 
             break;
-          
+          */
             default:
               break;
         }
-        HMI_Input_loeschen(hmi_input); 
+        HMI_Input_loeschen(hmi_input);
+        if(alarm1_ein_memory){
+          rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Hour); //Alarm when day (day of week), hours,inutes and seconds match 
+        }else{
+          rtc.clearAlarm(1);
+        }
   break;
 
   case 0x03: //Settings-page
@@ -734,9 +746,11 @@ switch (hmi_input[1])
     if(rtc.alarmFired(1)){
       rtc.clearAlarm(1);
     }
+    /*
     if(rtc.alarmFired(2)){
       rtc.clearAlarm(2);
     }
+    */
     Signalgeber(false);
     noTone(4);
     
@@ -749,72 +763,86 @@ default:
 
   static uint8_t anzeige_zeit;
   if(anzeige_zeit==150){
+    // Ist der Alarm hochgegangen?
+    if(rtc.alarmFired(1))
+    {
+      if(alarm1Woche[now.dayOfTheWeek()]==true){
+        if(!alarm_fired){
+          DisplayCommand("page 8");
+          alarm_fired=true;
+        }
+        Signalgeber(true);
+        if(now.minute()==alarm1_timeout){
+          rtc.clearAlarm(1);
+          alarm_fired=false;
+          DisplayCommand("page 0");
+          Signalgeber(false);
+        }
+      }else{
+        rtc.clearAlarm(1);
+      }
+    }
+
+    //Sind wir auf der richtigen Seite, um die Zeit auszugeben?
     if(page==0){
       displayTime(false);
       Serial.println("");
     }
 
+    //Ist der Automatische Modus aktiv?
     if(modus==6){//Lichtabhängige Steuerung
       bright=LDR_Messung();
       refreshColours();
-    }else if(modus==4){
+    }else if(modus==4){ //Ist der Partymodus aktiv?
       partymodus();
     }
 
-  if(rtc.alarmFired(1) && alarm1_ein_memory==true)
-  {
-    if(!alarm_fired){
-      DisplayCommand("page 8");
-      alarm_fired=true;
-    }
-    Signalgeber(true);
-    if(now.minute()==alarm1_timeout){
-      rtc.clearAlarm(1);
-      alarm_fired=false;
-      DisplayCommand("page 0");
-      Signalgeber(false);
-    }
-  }
-  if(rtc.alarmFired(2) && alarm2_ein_memory==true)
-  {
-    if(!alarm_fired){
-      DisplayCommand("page 8");
-      alarm_fired=true;
-    }
-    Signalgeber(true);
-    if(now.minute()==alarm2_timeout){
-      rtc.clearAlarm(2);
-      alarm_fired=false;
-      DisplayCommand("page 0");
-      Signalgeber(false);
-    }
-  }
     
-  }
-  anzeige_zeit++;
-
-  if(gestureActive){
-    if(Gestensensor()==1){
-      Serial.println("Geste");
-    }
-  }
-
-  //Wecker (Alarm 1)
-if((now.dayOfTheWeek()==1 && montag_alarm1_memory==true && alarm1_ein_memory==true) || 
-    (now.dayOfTheWeek()==2 && dienstag_alarm1_memory==true && alarm1_ein_memory==true) || 
-    (now.dayOfTheWeek()==3 && mittwoch_alarm1_memory==true && alarm1_ein_memory==true) ||
-    (now.dayOfTheWeek()==4 && donnerstag_alarm1_memory==true && alarm1_ein_memory==true) ||
-    (now.dayOfTheWeek()==5 && freitag_alarm1_memory==true && alarm1_ein_memory==true) ||
-    (now.dayOfTheWeek()==6 && samstag_alarm1_memory==true && alarm1_ein_memory==true) ||
-    (now.dayOfTheWeek()==0 && sonntag_alarm1_memory==true && alarm1_ein_memory==true))
+    /*
+    if(rtc.alarmFired(2) && alarm2_ein_memory==true)
     {
-      rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day); //Alarm when day (day of week), hours,inutes and seconds match */
+      if(!alarm_fired){
+        DisplayCommand("page 8");
+        alarm_fired=true;
+      }
+      Signalgeber(true);
+      if(now.minute()==alarm2_timeout){
+        rtc.clearAlarm(2);
+        alarm_fired=false;
+        DisplayCommand("page 0");
+        Signalgeber(false);
+      }
+    }
+    */
+
+    //Ist der Gestensensor aktiv?
+    if(gestureActive){
+      if(Gestensensor()==1){
+        Serial.println("Geste");
+      }
+    }
+
+    /*
+    //Wird der Wecker (Alarm 1) heute aktiv?
+    if((now.dayOfTheWeek()==1 && montag_alarm1_memory==true && alarm1_ein_memory==true) || 
+      (now.dayOfTheWeek()==2 && dienstag_alarm1_memory==true && alarm1_ein_memory==true) || 
+      (now.dayOfTheWeek()==3 && mittwoch_alarm1_memory==true && alarm1_ein_memory==true) ||
+      (now.dayOfTheWeek()==4 && donnerstag_alarm1_memory==true && alarm1_ein_memory==true) ||
+      (now.dayOfTheWeek()==5 && freitag_alarm1_memory==true && alarm1_ein_memory==true) ||
+      (now.dayOfTheWeek()==6 && samstag_alarm1_memory==true && alarm1_ein_memory==true) ||
+      (now.dayOfTheWeek()==0 && sonntag_alarm1_memory==true && alarm1_ein_memory==true) && !alarm_fired)
+    {
+      rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day); //Alarm when day (day of week), hours,inutes and seconds match 
     }else{
       rtc.clearAlarm(1);  //Alarm ausschalten
       noTone(4);  //Signalton ausschalten
     }
-//Wecker (Alarm 2)
+    */
+  }
+  anzeige_zeit++;
 
+//Wecker (Alarm 2)
+/*
 if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==true) || 
     (now.dayOfTheWeek()==2 && dienstag_alarm2_memory==true && alarm2_ein_memory==true) || 
     (now.dayOfTheWeek()==3 && mittwoch_alarm2_memory==true && alarm2_ein_memory==true) ||
@@ -828,9 +856,10 @@ if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==tr
       rtc.clearAlarm(2);  //Alarm ausschalten
       noTone(4);  //Signalton ausschalten
     }
-    
-}
+    */
 
+
+}//Ende von loop
 
 void HMI_Input_loeschen(char* HMI_Input_array)
 {
@@ -1022,10 +1051,20 @@ uint8_t Gestensensor()
     case GES_FORWARD:
       {
         //deactivate Alarm
-          Signalgeber(false);
-          DisplayCommand("page 0");
-          page=0;
-          return 1;
+        alarm_fired=false;
+        if(rtc.alarmFired(1)){
+          rtc.clearAlarm(1);
+        }
+        /*
+        if(rtc.alarmFired(2)){
+          rtc.clearAlarm(2);
+        }
+        */
+        Signalgeber(false);
+        noTone(4);
+        DisplayCommand("page 0");
+        page=0;
+        return 1;
         break;
       }
 
