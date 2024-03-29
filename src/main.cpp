@@ -729,7 +729,6 @@ switch (hmi_input[1])
     */
     Signalgeber(false);
     noTone(4);
-    
     break;
 
   default:
@@ -764,12 +763,15 @@ switch (hmi_input[1])
           DisplayCommand("page 8");
           alarm_fired=true;
         }
-        Signalgeber(true);
+        //automatisch nach 3 Minuten abschalten
         if(now.minute()==alarm1_timeout){
           rtc.clearAlarm(1);
           alarm_fired=false;
           DisplayCommand("page 0");
           Signalgeber(false);
+          noTone(4);
+        }else{
+          Signalgeber(true);
         }
       }else{
         rtc.clearAlarm(1);
@@ -808,12 +810,7 @@ switch (hmi_input[1])
     }
     */
 
-    //Ist der Gestensensor aktiv?
-    if(gestureActive){
-      if(Gestensensor()==1){
-        Serial.println("Geste");
-      }
-    }
+    
 
     /*
     //Wird der Wecker (Alarm 1) heute aktiv?
@@ -834,6 +831,12 @@ switch (hmi_input[1])
   }
   anzeige_zeit++;
 
+  //Ist der Gestensensor aktiv?
+  if(gestureActive){
+    if(Gestensensor()==1){
+      Serial.println("Geste");
+    }
+  }
 //Wecker (Alarm 2)
 /*
 if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==true) || 
@@ -1041,6 +1044,7 @@ uint8_t Gestensensor()
 
   switch (gesture)
   {
+    case GES_NONE:{return 0;}
     case GES_FORWARD:
       {
         //deactivate Alarm
@@ -1061,17 +1065,8 @@ uint8_t Gestensensor()
         break;
       }
 
-    case GES_BACKWARD:
-      {
-        //empty
-        break;
-      }
-
-    case GES_LEFT:
-      {
-        //empty
-        break;
-      }
+    case GES_BACKWARD:{break;}
+    case GES_LEFT:{break;}
 
     case GES_RIGHT:
       {
@@ -1131,28 +1126,9 @@ uint8_t Gestensensor()
         return 1;
         break;
       }
-
-    case GES_CLOCKWISE:
-      {
-        //empty
-        break;
-      }
-
-    case GES_ANTICLOCKWISE:
-      {
-        //empty
-        break;
-      }
-
-    case GES_WAVE:
-      {
-        break;
-      }
-
-    case GES_NONE:
-      {
-        break;
-      }
+    case GES_CLOCKWISE:{break;}
+    case GES_ANTICLOCKWISE:{break;}
+    case GES_WAVE:{break;}
   }
   return 0;
 }
