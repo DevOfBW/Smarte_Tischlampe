@@ -5,7 +5,6 @@
 #include <Arduino.h>
 #include <avr/power.h>
 
-#include "Nextion.h"
 #include "Adafruit_NeoPixel.h"  //Indirekte Beleuchtung
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
 #include "RevEng_PAJ7620.h"  //Gestensensor
@@ -92,6 +91,7 @@ void refreshColours();
 void activateIndBel(uint8_t, uint8_t, uint8_t, uint8_t);
 void activateHauptBel(uint8_t, uint8_t, uint8_t, uint8_t);
 void sendValue(const char*, uint8_t);
+void getSliderValue(const char*);
 
 // Objekte:
 Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
@@ -115,38 +115,10 @@ const char gruenerSlider[4]="p03";
 const char blauerSlider[4]="p05";
 const char hellerSlider[4]="p07";
 const char lichtText[4]="l06";
-
-//Displayelemente
-NexSlider p01 = NexSlider(6, 1, "p01"); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
-NexSlider p03 = NexSlider(6, 4, "p03"); //Slider gruen
-NexSlider p05 = NexSlider(6, 6, "p05"); //Slider blau
-NexSlider p07 = NexSlider(6, 8, "p07");  //Slider helligkeit
-
-// DisplayFunctions
-
-void p01PopCallback(){
-  p01.getValue(&memory);
-  red=memory;
-  refreshColours();
-}
-
-void p03PopCallback(){
-  p03.getValue(&memory);
-  green=memory;
-  refreshColours();
-}
-
-void p05PopCallback(){
-  p05.getValue(&memory);
-  blue=memory;
-  refreshColours();
-}
-
-void p07PopCallback(){
-  p07.getValue(&memory);
-  bright=memory;
-  refreshColours();
-}
+bool requestedRed=false;
+bool requestedGreen=false;
+bool requestedBlue=false;
+bool requestedBright=false;
 
 //Die Farbwerte für den aktuellen Modus speichern
 //Speichert die Werte für die aktiven Lampen
@@ -710,16 +682,20 @@ switch (hmi_input[1])
           b_switch_lsPopCallback();
           break;
         case 0x01:
-          p01PopCallback();
+          getSliderValue(roterSlider);
+          requestedRed=true;
           break;
         case 0x04:
-          p03PopCallback();
+          getSliderValue(gruenerSlider);
+          requestedGreen=true;
           break;
         case 0x06:
-          p05PopCallback();
+          getSliderValue(blauerSlider);
+          requestedBlue=true;
           break;
         case 0x08:
-          p07PopCallback();
+          getSliderValue(hellerSlider);
+          requestedBright=true;
           break;
         case 0x10: //Home-Button
           page=0;
@@ -756,10 +732,27 @@ switch (hmi_input[1])
     
     break;
 
-default:
-  break;
+  default:
+    break;
+  }
+}else if(hmi_input[0]==0x71){//Zweite Klammer für 0x65
+  //Das sind die Antworten auf unsere Get-Anfrage
+  if(requestedRed){
+    red=(uint8_t)hmi_input[1];
+    requestedRed=false;
+  }else if(requestedGreen){
+    green=(uint8_t)hmi_input[1];
+    requestedGreen=false;
+  }else if(requestedBlue){
+    blue=(uint8_t)hmi_input[1];
+    requestedBlue=false;
+  }else if(requestedBright){
+    bright=(uint8_t)hmi_input[1];
+    requestedBright=false;
+  }
+  refreshColours();
 }
-}//Zweite Klammer für 0x65
+
 
   static uint8_t anzeige_zeit;
   if(anzeige_zeit==150){
@@ -1198,5 +1191,11 @@ void sendValue(const char* object, uint8_t value){
   sprintf(buf, "%02d", value);
   memset(&sendingBuffer[0], 0, sizeof(sendingBuffer));
   sprintf(sendingBuffer, "%s%s%s", object, ".val=", buf);
+  DisplayCommand(sendingBuffer);
+}
+
+void getSliderValue(const char* object){
+  memset(&sendingBuffer[0], 0, sizeof(sendingBuffer));
+  sprintf(sendingBuffer, "%s%s%s", "get ",object, ".val");
   DisplayCommand(sendingBuffer);
 }
