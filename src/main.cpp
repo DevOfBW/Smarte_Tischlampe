@@ -700,6 +700,7 @@ switch (hmi_input[1])
           break;
         case 0x0F: //Home-Button
           page=0;
+          setModusActive(3);
           sensor.clearGestureInterrupts();
           break;
       }
