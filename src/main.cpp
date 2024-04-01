@@ -47,26 +47,13 @@ char printDatum[11], printUhrzeit[9], printTemp[13];
 char tag[6], monat[4], jahr[6], stunde[4], minute[4], sekunde[4], temperatur[8], w_tag[4];
 char sendingBuffer[20];
 bool alarm1Woche[7] = {true, true, true, true, true, true, true};
-bool montag_alarm1_memory=true;
-bool montag_alarm2_memory=true;
-bool dienstag_alarm1_memory=true;
-bool dienstag_alarm2_memory=true;
-bool mittwoch_alarm1_memory=true;
-bool mittwoch_alarm2_memory=true;
-bool donnerstag_alarm1_memory=true;
-bool donnerstag_alarm2_memory=true;
-bool freitag_alarm1_memory=true;
-bool freitag_alarm2_memory=true;
-bool samstag_alarm1_memory=true;
-bool samstag_alarm2_memory=true;
-bool sonntag_alarm1_memory=true;
-bool sonntag_alarm2_memory=true;
-bool alarm1_ein_memory=false;
-bool alarm2_ein_memory=false;
+bool alarm2Woche[7] = {true, true, true, true, true, true, true};
 int8_t alarm1_minute_memory;
 int8_t alarm1_stunde_memory;
 int8_t alarm2_minute_memory;
 int8_t alarm2_stunde_memory;
+bool alarm1_ein_memory=false;
+bool alarm2_ein_memory=false;
 bool alarm_fired=false;
 int8_t alarm1_timeout;
 int8_t alarm2_timeout;
@@ -253,10 +240,12 @@ void setup()
   }
   //Alarm (Wecker)
   rtc.disableAlarm(1);
-  //rtc.disableAlarm(2);
+  rtc.disableAlarm(2);
   rtc.clearAlarm(1);
-  //rtc.clearAlarm(2);  
+  rtc.clearAlarm(2);  
   rtc.writeSqwPinMode(DS3231_OFF);
+
+  // Initialzustand Lernmodus
   setModusActive(1);
 }
 
@@ -286,10 +275,7 @@ switch (hmi_input[1])
   case 0x00: //Mainpage
       switch(hmi_input[2]){
         case 2://Licht Einstellungen
-          page = 1;
-          //Radio-Buttons, funktioniert nicht
-          //TODO: 
-          
+          page = 1;          
           if(!hauptleuchte_an){
             sendValue("l07",0);
           }
@@ -358,8 +344,8 @@ switch (hmi_input[1])
   case 0x02: //Wecker-page
       char alarm1_stunde[4];
       char alarm1_minute[4];
-      //char alarm2_stunde[4];
-      //char alarm2_minute[4];
+      char alarm2_stunde[4];
+      char alarm2_minute[4];
       
         switch (hmi_input[2])
         {
@@ -429,7 +415,7 @@ switch (hmi_input[1])
               //sonntag_alarm1_memory=!sonntag_alarm1_memory;
             break;
 
-          /*
+          
           case 0x1B: //Alarm 2 Stunde verringern(1, 0, 23,...)
             --alarm2_stunde_memory;
             if(alarm2_stunde_memory<0){
@@ -465,27 +451,27 @@ switch (hmi_input[1])
             break;
 
           case 0x0A: //Montag (Alarm2)
-              montag_alarm2_memory=!montag_alarm2_memory;
+              alarm2Woche[1]=!alarm2Woche[1];
             break;
           case 0x0B: //Dienstag (Alarm2)
-              dienstag_alarm2_memory=!dienstag_alarm2_memory;     
+              alarm2Woche[2]=!alarm2Woche[2];
             break;
           case 0x0D: //Mittwoch (Alarm2)
-              mittwoch_alarm2_memory=!mittwoch_alarm2_memory;
+              alarm2Woche[3]=!alarm2Woche[3];
             break;
           case 0x0C: //Donnerstag (Alarm2)
-              donnerstag_alarm2_memory=!donnerstag_alarm2_memory;
+              alarm2Woche[4]=!alarm2Woche[4];
             break;
           case 0x0F: //Freitag (Alarm2)
-              freitag_alarm2_memory=!freitag_alarm2_memory; 
+              alarm2Woche[5]=!alarm2Woche[5];
             break;
           case 0x0E:  //Samstag (Alarm2)
-              samstag_alarm2_memory=!samstag_alarm2_memory;
+              alarm2Woche[6]=!alarm2Woche[6];
             break;
           case 0x10: //Sonntag (Alarm2)
-              sonntag_alarm2_memory=!sonntag_alarm2_memory;
+              alarm2Woche[0]=!alarm2Woche[0];
             break;
-          */
+          
 
           case 0x23: //Alarm 1 Ein/Aus
               if(alarm1_ein_memory==true)
@@ -500,13 +486,13 @@ switch (hmi_input[1])
                 }
               } 
             break;
-          /*
+          
           case 0x24: //Alarm 2 Ein/Aus
               if(alarm2_ein_memory==true)
               {
                 rtc.clearAlarm(2);
                 alarm2_ein_memory=false;
-              } else if (alarm2_ein_memory==false)
+              } else
               {
                 alarm2_ein_memory=true;
                 alarm2_timeout = alarm2_minute_memory + 3;
@@ -515,7 +501,7 @@ switch (hmi_input[1])
                 }
               } 
             break;
-          */
+          
             default:
               break;
         }
@@ -524,6 +510,11 @@ switch (hmi_input[1])
           rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Hour); //Alarm when day (day of week), hours,inutes and seconds match 
         }else{
           rtc.disableAlarm(1);
+        }
+        if(alarm2_ein_memory){
+          rtc.setAlarm2(DateTime(now.year(), now.month(), now.day(), alarm2_stunde_memory, alarm2_minute_memory, 0), DS3231_A2_Hour); //Alarm when day (day of week), hours,inutes and seconds match 
+        }else{
+          rtc.disableAlarm(2);
         }
   break;
 
@@ -763,6 +754,15 @@ switch (hmi_input[1])
       }
     }
 
+    if(rtc.alarmFired(2))
+    {
+      if(alarm2Woche[now.dayOfTheWeek()]==true){
+        alarmOccured(now.minute());
+      }else{
+        rtc.clearAlarm(2);
+      }
+    }
+
     //Ist der Automatische Modus aktiv?
     if(modus==6){//Lichtabhängige Steuerung
       bright=LDR_Messung();
@@ -784,7 +784,6 @@ void HMI_Input_loeschen(char* HMI_Input_array)
 }
 
 void displayTime (bool uhr_einstellen) {
-  //TODO: übergabeparameter kann entfernt werden, kann immer angezeigt werden in den feldern
   DateTime now = rtc.now();
 
   // Umwandlung der Zahlen in Char-Arrays
@@ -990,7 +989,7 @@ uint8_t Gestensensor()
     case GES_FORWARD:
       {
         //deactivate Alarm
-        if(rtc.alarmFired(1)){
+        if(rtc.alarmFired(1)||rtc.alarmFired(2)){
           stopAlarm();
           return 1;
         }
@@ -1074,13 +1073,9 @@ uint8_t Gestensensor()
 void Signalgeber(bool ton_an)
 {
   if(ton_an==true){
-    //uint8_t pulse=1;
     tone(4,264); // (pin, frequency, duration)
-    //while(pulse!=0){pulse++;    }
     delay(100);
-    //pulse=1;
     tone(4,547);
-    //while(pulse!=0){pulse++;}
     delay(100);
   }else{
     noTone(4);
@@ -1127,13 +1122,17 @@ void alarmOccured(uint8_t actualMinute){
     alarm_fired=true;
   }
   Signalgeber(true);
-  if(actualMinute==alarm1_timeout){
+  if(actualMinute==alarm1_timeout||actualMinute==alarm2_timeout){
     stopAlarm();    
   }
 }
 
 void stopAlarm(){
-  rtc.clearAlarm(1);
+  if(rtc.alarmFired(1)){
+    rtc.clearAlarm(1);
+  }else if(rtc.alarmFired(2)){
+    rtc.clearAlarm(2);
+  }
   alarm_fired=false;
   DisplayCommand("page 0");
   Signalgeber(false);
