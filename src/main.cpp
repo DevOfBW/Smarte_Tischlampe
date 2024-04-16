@@ -40,7 +40,7 @@ uint32_t memory;
 uint8_t modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
 bool hauptleuchte_an=true;
 bool indirektebeleuchtung_an=true;
-uint8_t activeLamp=1; //0 beide aus; 1 Haupt; 2 Neben
+bool activeLamp=false; //0 Haupt; 1 Neben
 uint8_t red,green,blue,bright;
 
 char printHelp[13];
@@ -116,12 +116,12 @@ const char convertToNumber[5]="%02d";
 //Die Farbwerte für den aktuellen Modus speichern
 //Speichert die Werte für die aktiven Lampen
 void bt_save_lsPopCallback(){
-  if(activeLamp==0){
+  if(!activeLamp){
     indRed=red;
     indBlue=blue;
     indGreen=green;
     indBright=bright;
-  }else if(activeLamp==1){
+  }else if(activeLamp){
     mainRed=red;
     mainBlue=blue;
     mainGreen=green;
@@ -130,28 +130,22 @@ void bt_save_lsPopCallback(){
 }
 
 void b_switch_lsPopCallback(){
-  activeLamp++;
-  switch(activeLamp){
-    case 1: 
-        hauptleuchte_an=true;
+  if(activeLamp){
+    hauptleuchte_an=true;
         indirektebeleuchtung_an=false;
         red=mainRed;
         blue=mainBlue;
         green=mainGreen;
         bright=mainBright;
-        break;
-    case 2: 
-        hauptleuchte_an=false;
+  }else{
+    hauptleuchte_an=false;
         indirektebeleuchtung_an=true;
         red=indRed;
         blue=indBlue;
         green=indGreen;
         bright=indBright;
-        activeLamp=0;
-        break;
-    default: 
-        break;
   }
+  activeLamp=!activeLamp;
   sendValue("p09",0);
   refreshColours();
   //delay(10);
@@ -182,7 +176,6 @@ char wochentage[7][3] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
 // Diese Mehtode wird einmalig zum Programmstart ausgeführt.
 void setup() 
 {
-
   //debug_init(); //AUFRUF IST NOTWENDIG UM DEBUGGER ZU STARTEN
   Serial.begin(9600); //Iinitialisierung von Serieller Verbindung um Ergebnisse anzuzeigen auf Konsole
 
@@ -593,7 +586,7 @@ switch (hmi_input[1])
       case 0x12: //Jahr verringern
         jahr_memory--;
         if(jahr_memory<1){
-        jahr_memory=9999;
+        jahr_memory=2024;
         }
         sprintf(jahr, "%04d", jahr_memory);
         sentTextState(textFeldJahr,jahr);
@@ -601,7 +594,7 @@ switch (hmi_input[1])
       case 0x10: //Jahr erhöhen 
         jahr_memory++;
         if(jahr_memory>9999){
-        jahr_memory=1;
+        jahr_memory=2024;
         }
         sprintf(jahr, "%04d", jahr_memory);
         sentTextState(textFeldJahr,jahr);
@@ -949,9 +942,9 @@ uint8_t LDR_Messung()
   }else if(helligkeit>630){
     return 130;
   }else if(helligkeit>550){
-    return 50;
+    return 150;
   }else{
-    return 0;
+    return 240;
   }
 }
 
@@ -1006,9 +999,6 @@ uint8_t Gestensensor()
           indBright=(indBright>205)?255:indBright+50;
         }else{
           bright=bright + 50;
-          if(bright > 255){
-            bright=255;
-          }
         }
         refreshColours();
         return 1;
