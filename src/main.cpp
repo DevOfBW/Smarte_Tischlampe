@@ -5,7 +5,6 @@
 #include <Arduino.h>
 #include <avr/power.h>
 
-#include "Nextion.h"
 #include "Adafruit_NeoPixel.h"  //Indirekte Beleuchtung
 #include <Wire.h> //wird gebraucht für I2C-Kommunikation mit dem Gestensensor
 #include "RevEng_PAJ7620.h"  //Gestensensor
@@ -13,7 +12,7 @@
 
 // Variablen:
 #define LED_PIN_IndLi    6    // LED Pin für die indirekte Beleuchtung auf der linken Seite an Pin 6
-#define LED_COUNT_IndLi 29    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
+#define LED_COUNT_IndLi 14    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
 #define LED_PIN_IndRe    5    // LED Pin für die indirekte Beleuchtung auf der linken Seite an Pin 6
 #define LED_COUNT_IndRe 14    //Anzahl einzelner Neopixel (RGB-LEDs) des LED-Streifens indirekte Beleuchtung auf der linken Seite
 #define main_light_count 25
@@ -27,9 +26,9 @@ uint8_t parRed[12]={128, 192, 239, 255, 239, 192, 128, 64, 17, 0, 17, 64};
 uint8_t parBlue[13]={213, 159, 97, 43, 8, 1, 23, 69, 128, 187, 233, 255, 248};
 uint8_t parGreen[14]={2, 5, 32, 78, 134, 189, 232, 254, 251, 224, 178, 122, 67, 24};
 uint8_t parBright[11]={128, 169, 196, 202, 185, 149, 107, 71, 54, 60, 87};
-int count=0;
-int pause=0;
-uint8_t page=0; //0 Main-Seite
+uint8_t count=0;
+//int pause=0;
+uint8_t page=0; //0 Main-Seite, 1 Lichtkonfiguration, 2 Wecker, 3 Einstellungen, 4 Gesten, 5 Uhreinstellungen, 6 LichtSpezial, 7 Gesten Nr.2, 8 Alarm aktiv
 bool gestureActive=true; //Zeigt ob der Gestensensor Eingaben verarbeiten kann
 bool settingAlarm=false;
 //uint8_t mem_day=0;
@@ -39,42 +38,28 @@ uint8_t indRed,indGreen,indBlue,indBright;
 uint8_t mainRed,mainGreen,mainBlue,mainBright;
 uint32_t memory;
 uint8_t modus=0;  //1 Lernen, 2 Relax, 3 Mix, 4 Party, 6 Auto
-bool hauptleuchte_an=false;
-bool indirektebeleuchtung_an=false;
-uint8_t activeLamp=1; //0 beide aus; 1 Haupt; 2 Neben
+bool hauptleuchte_an=true;
+bool indirektebeleuchtung_an=true;
+bool activeLamp=false; //0 Haupt; 1 Neben
 uint8_t red,green,blue,bright;
 
-char printDatum[11], printUhrzeit[9], printTemp[13];
+char printHelp[13];
 char tag[6], monat[4], jahr[6], stunde[4], minute[4], sekunde[4], temperatur[8], w_tag[4];
 char sendingBuffer[20];
-bool montag_alarm1_memory=true;
-bool montag_alarm2_memory=true;
-bool dienstag_alarm1_memory=true;
-bool dienstag_alarm2_memory=true;
-bool mittwoch_alarm1_memory=true;
-bool mittwoch_alarm2_memory=true;
-bool donnerstag_alarm1_memory=true;
-bool donnerstag_alarm2_memory=true;
-bool freitag_alarm1_memory=true;
-bool freitag_alarm2_memory=true;
-bool samstag_alarm1_memory=true;
-bool samstag_alarm2_memory=true;
-bool sonntag_alarm1_memory=true;
-bool sonntag_alarm2_memory=true;
+
+bool alarm1Woche[7] = {true, true, true, true, true, true, true};
 bool alarm1_ein_memory=false;
-bool alarm2_ein_memory=false;
+//bool alarm2_ein_memory=false;
 int8_t alarm1_minute_memory;
 int8_t alarm1_stunde_memory;
-int8_t alarm2_minute_memory;
-int8_t alarm2_stunde_memory;
+//int8_t alarm2_minute_memory;
+//int8_t alarm2_stunde_memory;
 bool alarm_fired=false;
 int8_t alarm1_timeout;
-int8_t alarm2_timeout;
+//int8_t alarm2_timeout;
 
 //TODO: Können die Bool-Werte nicht einfacher in zwei Integern gespeichert werden? Wäre auch leichter zu verstehen.
 char hmi_input [7]={};    //Es werden 4 char benötigt, da wir 4 Datensätze pro Button übertragen, um diesen zu identifizieren
-
-
 
 // Funktionen:
 void Signalgeber(bool); //(An/Aus)
@@ -85,12 +70,15 @@ void DisplayCommand(const char*);
 void clearCharArray(const char*);
 void displayTime (bool); //Ausgabe der aktuellen Zeit
 void HMI_Input_loeschen(char*);
-boolean setModusActive(int);
+boolean setModusActive(uint8_t);
 void partymodus();
 void refreshColours();
 void activateIndBel(uint8_t, uint8_t, uint8_t, uint8_t);
 void activateHauptBel(uint8_t, uint8_t, uint8_t, uint8_t);
 void sendValue(const char*, uint8_t);
+void getSliderValue(const char*);
+void alarmOccured(uint8_t);
+void stopAlarm();
 
 // Objekte:
 Adafruit_NeoPixel strip_IndLi(LED_COUNT_IndLi, LED_PIN_IndLi, NEO_GRB + NEO_KHZ800);    // NeoPixel pixel object:
@@ -114,48 +102,26 @@ const char gruenerSlider[4]="p03";
 const char blauerSlider[4]="p05";
 const char hellerSlider[4]="p07";
 const char lichtText[4]="l06";
-
-//Displayelemente
-NexSlider p01 = NexSlider(6, 1, roterSlider); //Slider initialisieren rot; Touch-Release Event muss noch konfiguriert werden
-NexSlider p03 = NexSlider(6, 4, gruenerSlider); //Slider gruen
-NexSlider p05 = NexSlider(6, 6, blauerSlider); //Slider blau
-NexSlider p07 = NexSlider(6, 8, hellerSlider);  //Slider helligkeit
-
-// DisplayFunctions
-
-void p01PopCallback(){
-  p01.getValue(&memory);
-  red=memory;
-  refreshColours();
-}
-
-void p03PopCallback(){
-  p03.getValue(&memory);
-  green=memory;
-  refreshColours();
-}
-
-void p05PopCallback(){
-  p05.getValue(&memory);
-  blue=memory;
-  refreshColours();
-}
-
-void p07PopCallback(){
-  p07.getValue(&memory);
-  bright=memory;
-  refreshColours();
-}
+const char textFeldTag[4]="u05";
+const char textFeldMonat[4]="u08";
+const char textFeldJahr[4]="u11";
+const char textFeldStunde[4]="u14";
+const char textFeldMinute[4]="u18";
+bool requestedRed=false;
+bool requestedGreen=false;
+bool requestedBlue=false;
+bool requestedBright=false;
+const char convertToNumber[5]="%02d";
 
 //Die Farbwerte für den aktuellen Modus speichern
 //Speichert die Werte für die aktiven Lampen
 void bt_save_lsPopCallback(){
-  if(activeLamp==0){
+  if(!activeLamp){
     indRed=red;
     indBlue=blue;
     indGreen=green;
     indBright=bright;
-  }else if(activeLamp==1){
+  }else if(activeLamp){
     mainRed=red;
     mainBlue=blue;
     mainGreen=green;
@@ -164,33 +130,22 @@ void bt_save_lsPopCallback(){
 }
 
 void b_switch_lsPopCallback(){
-  char text[6];
-  strcpy(text,"     ");
-  activeLamp++;
-  switch(activeLamp){
-    case 1: 
-        hauptleuchte_an=true;
+  if(activeLamp){
+    hauptleuchte_an=true;
         indirektebeleuchtung_an=false;
-        strcpy(text,"Haupt");
         red=mainRed;
         blue=mainBlue;
         green=mainGreen;
         bright=mainBright;
-        break;
-    case 2: 
-        hauptleuchte_an=false;
+  }else{
+    hauptleuchte_an=false;
         indirektebeleuchtung_an=true;
-        strcpy(text,"Neben");
         red=indRed;
         blue=indBlue;
         green=indGreen;
         bright=indBright;
-        activeLamp=0;
-        break;
-    default: 
-        break;
   }
-  sentTextState("p10",text);
+  activeLamp=!activeLamp;
   sendValue("p09",0);
   refreshColours();
   //delay(10);
@@ -212,31 +167,15 @@ void b_switch_lsPopCallback(){
   refreshColours();
 }
 
-//Konfigurationsbutton
-void b_mixco_lkPopCallback(){
-  setModusActive(5);
-}
-
-void r_hauptle_lkPopCallback(){
-  hauptleuchte_an=!hauptleuchte_an;
-  refreshColours();
-}
-
-void r_indirektb_lkPopCallback(){
-  indirektebeleuchtung_an=!indirektebeleuchtung_an;
-  refreshColours();
-}
 //Wecker + Uhrzeit
 RTC_DS3231 rtc;
 char wochentage[7][3] = {"So","Mo", "Di", "Mi", "Do", "Fr", "Sa"};
-//char monate_des_jahres[12][12] = {"Januar", "Februar", "Maerz", "April", "Mai", "Juni","Juli", "August", "September", "Oktober", "November", "Dezember"}; 
 
 
 // Setupmethode, diese Methode beeinhaltet alle Grundeinstellungen z.B. ob ein Kanal ein Eingang oder Ausgang ist. 
 // Diese Mehtode wird einmalig zum Programmstart ausgeführt.
 void setup() 
 {
-
   //debug_init(); //AUFRUF IST NOTWENDIG UM DEBUGGER ZU STARTEN
   Serial.begin(9600); //Iinitialisierung von Serieller Verbindung um Ergebnisse anzuzeigen auf Konsole
 
@@ -253,37 +192,38 @@ void setup()
 
   //Gestensensor
   
-  Serial.println("Recognizing all 9 gestures");
+  //Serial.println("Recognizing gestures");
 
   if( !sensor.begin() )           // return value of 0 == success
   {
-    Serial.println("PAJ7620 I2C error - halting");
+    //Serial.println("PAJ7620 I2C error");
   }else{
-    Serial.println("PAJ7620 init OK");
+    //Serial.println("PAJ7620 init OK");
   }
   
   //RTC
   if (! rtc.begin()) {
     //TODO: Ausgabe der Fehlermeldung auf Touchdisplay
-    Serial.println("RTC nicht gefunden");
+    //Serial.println("RTC nicht gefunden");
     Serial.flush();
     abort();
   }else{
-    Serial.println("RTC initialisiert");
+    //Serial.println("RTC initialisiert");
   }
 
    rtc.disable32K();
 
   if (rtc.lostPower()) {
     //TODO: Implementieren auf Touchdisplay evtl. sichtbar
-     Serial.println("RTC lost power, let's set the time!");
+     //Serial.println("RTC lost power, set the time");
   }
   //Alarm (Wecker)
   rtc.disableAlarm(1);
-  rtc.disableAlarm(2);
+  //rtc.disableAlarm(2);
   rtc.clearAlarm(1);
-  rtc.clearAlarm(2);  
+  //rtc.clearAlarm(2);  
   rtc.writeSqwPinMode(DS3231_OFF);
+  setModusActive(1);
 }
 
 
@@ -295,7 +235,7 @@ void loop()
   //HMI input bitstream lesen
   if(Serial.available() > 0) //Prüfe ob Serielle Schnittstelle erreichbar
   {
-    for(int i=0;i<6;i++) //Eingehende Nummer von Inputs einlesen (xx yy zz dd aa uu ii) yy=Seite, zz=Button 1,2,3
+    for(uint8_t i=0;i<6;i++) //Eingehende Nummer von Inputs einlesen (xx yy zz dd aa uu ii) yy=Seite, zz=Button 1,2,3
     {
       hmi_input[i]=hmi_input[i+1];
     }
@@ -316,11 +256,11 @@ switch (hmi_input[1])
           //Radio-Buttons, funktioniert nicht
           //TODO: 
           
-          if(hauptleuchte_an){
-            sendValue("l07",1);
+          if(!hauptleuchte_an){
+            sendValue("l07",0);
           }
-          if(indirektebeleuchtung_an){
-            sendValue("l08",1);
+          if(!indirektebeleuchtung_an){
+            sendValue("l08",0);
           }          
           break;
         case 1:
@@ -369,23 +309,28 @@ switch (hmi_input[1])
           setModusActive(4);
           break;
         case 0x10://Licht-Konfig
-          b_mixco_lkPopCallback();
+          hauptleuchte_an=true;
+          indirektebeleuchtung_an=false;
+          setModusActive(5);
+          page=6;
           break;
         case 0x09://Hauptlicht an?
-          r_hauptle_lkPopCallback();
+          hauptleuchte_an=!hauptleuchte_an;
+          refreshColours();
           break;
         case 0x0A://Nebenlicht an?
-          r_indirektb_lkPopCallback();
+          indirektebeleuchtung_an=!indirektebeleuchtung_an;
+          refreshColours();
           break;
       }
       HMI_Input_loeschen(hmi_input);
   break;
 
   case 0x02: //Wecker-page
-      char alarm1_stunde[4];
-      char alarm1_minute[4];
-      char alarm2_stunde[4];
-      char alarm2_minute[4];
+      //char alarm1_stunde[4];
+      //char alarm1_minute[4];
+      //char alarm2_stunde[4];
+      //char alarm2_minute[4];
       
         switch (hmi_input[2])
         {
@@ -397,16 +342,16 @@ switch (hmi_input[1])
             if(alarm1_stunde_memory<0){
               alarm1_stunde_memory=23;
             }
-            sprintf(alarm1_stunde, "%02d", alarm1_stunde_memory);
-            sentTextState("a10",alarm1_stunde);
+            sprintf(stunde, convertToNumber, alarm1_stunde_memory);
+            sentTextState("a10",stunde);
             break;
           case 0x11: //Alarm 1 Stunde erhöhen (1, 2, 3,...)
             ++alarm1_stunde_memory;
             if(alarm1_stunde_memory>23){
             alarm1_stunde_memory=0;
             }
-            sprintf(alarm1_stunde, "%02d", alarm1_stunde_memory);
-            sentTextState("a10",alarm1_stunde);
+            sprintf(stunde, convertToNumber, alarm1_stunde_memory);
+            sentTextState("a10",stunde);
             break; 
 
           case 0x16: //Alarm 1 Minute verringern(1, 59, 58,...)
@@ -414,47 +359,54 @@ switch (hmi_input[1])
             if(alarm1_minute_memory<0){
             alarm1_minute_memory=59;
             }
-            sprintf(alarm1_minute, "%02d", alarm1_minute_memory);
-            sentTextState("a12",alarm1_minute);
+            sprintf(minute, convertToNumber, alarm1_minute_memory);
+            sentTextState("a12",minute);
             break;
           case 0x14: //Alarm 1 Minute erhöhen (1, 2, 3,...)
             ++alarm1_minute_memory;
             if(alarm1_minute_memory>59){
             alarm1_minute_memory=0;
             }
-            sprintf(alarm1_minute, "%02d", alarm1_minute_memory);
-            sentTextState("a12",alarm1_minute);
+            sprintf(minute, convertToNumber, alarm1_minute_memory);
+            sentTextState("a12",minute);
             break;
 
           case 0x03: //Montag (Alarm1)
-              montag_alarm1_memory=!montag_alarm1_memory; 
+              alarm1Woche[1]=!alarm1Woche[1];
+              //montag_alarm1_memory=!montag_alarm1_memory; 
             break;
           case 0x04: //Dienstag (Alarm1)
-              dienstag_alarm1_memory=!dienstag_alarm1_memory;    
+              alarm1Woche[2]=!alarm1Woche[2];
+              //dienstag_alarm1_memory=!dienstag_alarm1_memory;    
             break;
           case 0x06: //Mittwoch (Alarm1)
-              mittwoch_alarm1_memory=!mittwoch_alarm1_memory; 
+              alarm1Woche[3]=!alarm1Woche[3];
+              //mittwoch_alarm1_memory=!mittwoch_alarm1_memory; 
             break;
           case 0x05: //Donnerstag (Alarm1)
-              donnerstag_alarm1_memory=!donnerstag_alarm1_memory;
+              alarm1Woche[4]=!alarm1Woche[4];
+              //donnerstag_alarm1_memory=!donnerstag_alarm1_memory;
             break;
           case 0x08: //Freitag (Alarm1)
-              freitag_alarm1_memory=!freitag_alarm1_memory;
+              alarm1Woche[5]=!alarm1Woche[5];
+              //freitag_alarm1_memory=!freitag_alarm1_memory;
             break;
           case 0x07:  //Samstag (Alarm1)
-              samstag_alarm1_memory=!samstag_alarm1_memory;
+              alarm1Woche[6]=!alarm1Woche[6];
+              //samstag_alarm1_memory=!samstag_alarm1_memory;
             break;
           case 0x09: //Sonntag (Alarm1)
-              sonntag_alarm1_memory=!sonntag_alarm1_memory;
+              alarm1Woche[0]=!alarm1Woche[0];
+              //sonntag_alarm1_memory=!sonntag_alarm1_memory;
             break;
 
-          
+          /*
           case 0x1B: //Alarm 2 Stunde verringern(1, 0, 23,...)
             --alarm2_stunde_memory;
             if(alarm2_stunde_memory<0){
             alarm2_stunde_memory=23;
             }
-            sprintf(alarm2_stunde, "%02d", alarm2_stunde_memory);
+            sprintf(alarm2_stunde, convertToNumber, alarm2_stunde_memory);
             sentTextState("a17",alarm2_stunde);
             break;
           case 0x1D: //Alarm 2 Stunde erhöhen (1, 2, 3,...)
@@ -462,7 +414,7 @@ switch (hmi_input[1])
             if(alarm2_stunde_memory>23){
             alarm2_stunde_memory=0;
             }
-            sprintf(alarm2_stunde, "%02d", alarm2_stunde_memory);
+            sprintf(alarm2_stunde, convertToNumber, alarm2_stunde_memory);
             sentTextState("a17",alarm2_stunde);
             break; 
 
@@ -471,7 +423,7 @@ switch (hmi_input[1])
             if(alarm2_minute_memory<0){
             alarm2_minute_memory=59;
             }
-            sprintf(alarm2_minute, "%02d", alarm2_minute_memory);
+            sprintf(alarm2_minute, convertToNumber, alarm2_minute_memory);
             sentTextState("a19",alarm2_minute);
             break;
           case 0x1A: //Alarm 2 Minute erhöhen (1, 2, 3,...)
@@ -479,7 +431,7 @@ switch (hmi_input[1])
             if(alarm2_minute_memory>59){
             alarm2_minute_memory=0;
             }
-            sprintf(alarm2_minute, "%02d", alarm2_minute_memory);
+            sprintf(alarm2_minute, convertToNumber, alarm2_minute_memory);
             sentTextState("a19",alarm2_minute);
             break;
 
@@ -504,15 +456,13 @@ switch (hmi_input[1])
           case 0x10: //Sonntag (Alarm2)
               sonntag_alarm2_memory=!sonntag_alarm2_memory;
             break;
-          
+          */
 
           case 0x23: //Alarm 1 Ein/Aus
               if(alarm1_ein_memory==true)
               {
-                rtc.clearAlarm(1);
                 alarm1_ein_memory=false;
-              } else if (alarm1_ein_memory==false)
-              {
+              } else{
                 alarm1_ein_memory=true;
                 alarm1_timeout = alarm1_minute_memory + 3;
                 if(alarm1_timeout>59){
@@ -520,7 +470,7 @@ switch (hmi_input[1])
                 }
               } 
             break;
-          
+          /*
           case 0x24: //Alarm 2 Ein/Aus
               if(alarm2_ein_memory==true)
               {
@@ -535,11 +485,16 @@ switch (hmi_input[1])
                 }
               } 
             break;
-          
+          */
             default:
               break;
         }
-        HMI_Input_loeschen(hmi_input); 
+        HMI_Input_loeschen(hmi_input);
+        if(alarm1_ein_memory){
+          rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Hour); //Alarm when day (day of week), hours,inutes and seconds match 
+        }else{
+          rtc.disableAlarm(1);
+        }
   break;
 
   case 0x03: //Settings-page
@@ -579,15 +534,15 @@ switch (hmi_input[1])
 
   case 5: //Uhr-Konfig-page
       static int8_t tag_memory=now.day();
-      char tag[3];
+      //char tag[3];
       static int8_t monat_memory=now.month();
-      char monat[3];
+      //char monat[3];
       static int16_t jahr_memory=now.year();
-      char jahr[6];
+      //char jahr[6];
       static int8_t stunde_memory=now.hour();
-      char stunde[4];
+      //char stunde[4];
       static int8_t minute_memory=now.minute();
-      char minute[4];
+      //char minute[4];
 
       switch (hmi_input[2])
       {
@@ -599,16 +554,16 @@ switch (hmi_input[1])
         if(tag_memory<1){
         tag_memory=31;
         }
-        sprintf(tag, "%02d", tag_memory);
-        sentTextState("u05",tag);
+        sprintf(tag, convertToNumber, tag_memory);
+        sentTextState(textFeldTag,tag);
         break;
       case 0x0A: //Tag erhöhen (1, 2, 3,...)
         tag_memory++;
         if(tag_memory>31){
         tag_memory=1;
         }
-        sprintf(tag, "%02d", tag_memory);
-        sentTextState("u05",tag);
+        sprintf(tag, convertToNumber, tag_memory);
+        sentTextState(textFeldTag,tag);
         break;
 
       case 0x0F: //Monat verringern(1, 12, 1,...)
@@ -616,33 +571,33 @@ switch (hmi_input[1])
         if(monat_memory<1){
         monat_memory=12;
         }
-        sprintf(monat, "%02d", monat_memory);
-        sentTextState("u08",monat);
+        sprintf(monat, convertToNumber, monat_memory);
+        sentTextState(textFeldMonat,monat);
         break;
       case 0x0D: //Monat erhöhen (1, 2, 3,...)
         monat_memory++;
         if(monat_memory>12){
         monat_memory=1;
         }
-        sprintf(monat, "%02d", monat_memory);
-        sentTextState("u08",monat);
+        sprintf(monat, convertToNumber, monat_memory);
+        sentTextState(textFeldMonat,monat);
         break;
 
       case 0x12: //Jahr verringern
         jahr_memory--;
         if(jahr_memory<1){
-        jahr_memory=9999;
+        jahr_memory=2024;
         }
         sprintf(jahr, "%04d", jahr_memory);
-        sentTextState("u11",jahr);
+        sentTextState(textFeldJahr,jahr);
         break;
       case 0x10: //Jahr erhöhen 
         jahr_memory++;
         if(jahr_memory>9999){
-        jahr_memory=1;
+        jahr_memory=2024;
         }
         sprintf(jahr, "%04d", jahr_memory);
-        sentTextState("u11",jahr);
+        sentTextState(textFeldJahr,jahr);
         break;
 
       case 0x15: //Stunde verringern(1, 0, 23,...)
@@ -650,16 +605,16 @@ switch (hmi_input[1])
         if(stunde_memory<0){
         stunde_memory=23;
         }
-        sprintf(stunde, "%02d", stunde_memory);
-        sentTextState("u14",stunde);
+        sprintf(stunde, convertToNumber, stunde_memory);
+        sentTextState(textFeldStunde,stunde);
         break;
       case 0x13: //Stunde erhöhen (1, 2, 3,...)
         stunde_memory++;
         if(stunde_memory>23){
         stunde_memory=0;
         }
-        sprintf(stunde, "%02d", stunde_memory);
-        sentTextState("u14",stunde);
+        sprintf(stunde, convertToNumber, stunde_memory);
+        sentTextState(textFeldStunde,stunde);
         break; 
 
       case 0x18: //Minute verringern(1, 59, 58,...)
@@ -667,16 +622,16 @@ switch (hmi_input[1])
         if(minute_memory<1){
         minute_memory=59;
         }
-        sprintf(minute, "%02d", minute_memory);
-        sentTextState("u18",minute);
+        sprintf(minute, convertToNumber, minute_memory);
+        sentTextState(textFeldMinute,minute);
         break;
       case 0x16: //Minute erhöhen (1, 2, 3,...)
         minute_memory++;
         if(minute_memory>59){
         minute_memory=0;
         }
-        sprintf(minute, "%02d", minute_memory);
-        sentTextState("u18",minute);
+        sprintf(minute, convertToNumber, minute_memory);
+        sentTextState(textFeldMinute,minute);
         break;
 
       case 0x04: //Speichern
@@ -694,30 +649,29 @@ switch (hmi_input[1])
         case 0x02:
           bt_save_lsPopCallback();
           break;
-        case 0x0F:
+        case 0x0E:
           b_switch_lsPopCallback();
           break;
         case 0x01:
-          p01PopCallback();
+          getSliderValue(roterSlider);
+          requestedRed=true;
           break;
         case 0x04:
-          p03PopCallback();
+          getSliderValue(gruenerSlider);
+          requestedGreen=true;
           break;
         case 0x06:
-          p05PopCallback();
+          getSliderValue(blauerSlider);
+          requestedBlue=true;
           break;
         case 0x08:
-          p07PopCallback();
+          getSliderValue(hellerSlider);
+          requestedBright=true;
           break;
-        case 0x10: //Home-Button
+        case 0x0F: //Home-Button
           page=0;
-          break;
-        case 0x0E:  //Zurück
-          if(activeLamp==0){
-            activateIndBel(red,green, blue,bright);
-          }else{
-            activateHauptBel(red, green, blue, bright);
-          }
+          setModusActive(3);
+          sensor.clearGestureInterrupts();
           break;
       }
       HMI_Input_loeschen(hmi_input);
@@ -727,114 +681,74 @@ switch (hmi_input[1])
     if(hmi_input[2]==3){
       page=0;
     }
+    HMI_Input_loeschen(hmi_input);
   break;
 
   case 8:
-    alarm_fired=false;
-    if(rtc.alarmFired(1)){
-      rtc.clearAlarm(1);
-    }
-    if(rtc.alarmFired(2)){
-      rtc.clearAlarm(2);
-    }
-    Signalgeber(false);
-    noTone(4);
-    
+    stopAlarm();
+    HMI_Input_loeschen(hmi_input);
     break;
 
-default:
-  break;
+  default:
+    break;
+  }
+}else if(hmi_input[0]==0x71){//Zweite Klammer für 0x65
+  //Das sind die Antworten auf unsere Get-Anfrage
+  if(requestedRed){
+    red=(uint8_t)hmi_input[1];
+    requestedRed=false;
+  }else if(requestedGreen){
+    green=(uint8_t)hmi_input[1];
+    requestedGreen=false;
+  }else if(requestedBlue){
+    blue=(uint8_t)hmi_input[1];
+    requestedBlue=false;
+  }else if(requestedBright){
+    bright=(uint8_t)hmi_input[1];
+    requestedBright=false;
+  }
+  refreshColours();
 }
-}//Zweite Klammer für 0x65
+
+  
 
   static uint8_t anzeige_zeit;
   if(anzeige_zeit==150){
+    //Sind wir auf der richtigen Seite, um die Zeit auszugeben?
     if(page==0){
       displayTime(false);
-      Serial.println("");
+    }
+    //Ist der Gestensensor aktiv?
+    if(gestureActive){
+      if(Gestensensor()==1){
+        //Serial.println("Geste");
+      }
+    }
+    // Ist der Alarm hochgegangen?
+    if(rtc.alarmFired(1))
+    {
+      if(alarm1Woche[now.dayOfTheWeek()]==true){
+        alarmOccured(now.minute());
+      }else{
+        rtc.clearAlarm(1);
+      }
     }
 
+    //Ist der Automatische Modus aktiv?
     if(modus==6){//Lichtabhängige Steuerung
       bright=LDR_Messung();
       refreshColours();
-    }else if(modus==4){
+    }else if(modus==4){ //Ist der Partymodus aktiv?
       partymodus();
     }
-
-  if(rtc.alarmFired(1) && alarm1_ein_memory==true)
-  {
-    if(!alarm_fired){
-      DisplayCommand("page 8");
-      alarm_fired=true;
-    }
-    Signalgeber(true);
-    if(now.minute()==alarm1_timeout){
-      rtc.clearAlarm(1);
-      alarm_fired=false;
-      DisplayCommand("page 0");
-      Signalgeber(false);
-    }
-  }
-  if(rtc.alarmFired(2) && alarm2_ein_memory==true)
-  {
-    if(!alarm_fired){
-      DisplayCommand("page 8");
-      alarm_fired=true;
-    }
-    Signalgeber(true);
-    if(now.minute()==alarm2_timeout){
-      rtc.clearAlarm(2);
-      alarm_fired=false;
-      DisplayCommand("page 0");
-      Signalgeber(false);
-    }
-  }
-    
+    Serial.println("");
   }
   anzeige_zeit++;
-
-  if(gestureActive){
-    if(Gestensensor()==1){
-      Serial.println("Geste");
-    }
-  }
-
-  //Wecker (Alarm 1)
-if((now.dayOfTheWeek()==1 && montag_alarm1_memory==true && alarm1_ein_memory==true) || 
-    (now.dayOfTheWeek()==2 && dienstag_alarm1_memory==true && alarm1_ein_memory==true) || 
-    (now.dayOfTheWeek()==3 && mittwoch_alarm1_memory==true && alarm1_ein_memory==true) ||
-    (now.dayOfTheWeek()==4 && donnerstag_alarm1_memory==true && alarm1_ein_memory==true) ||
-    (now.dayOfTheWeek()==5 && freitag_alarm1_memory==true && alarm1_ein_memory==true) ||
-    (now.dayOfTheWeek()==6 && samstag_alarm1_memory==true && alarm1_ein_memory==true) ||
-    (now.dayOfTheWeek()==0 && sonntag_alarm1_memory==true && alarm1_ein_memory==true))
-    {
-      rtc.setAlarm1(DateTime(now.year(), now.month(), now.day(), alarm1_stunde_memory, alarm1_minute_memory, 0), DS3231_A1_Day); //Alarm when day (day of week), hours,inutes and seconds match */
-    }else{
-      rtc.clearAlarm(1);  //Alarm ausschalten
-      noTone(4);  //Signalton ausschalten
-    }
-//Wecker (Alarm 2)
-
-if((now.dayOfTheWeek()==1 && montag_alarm2_memory==true && alarm2_ein_memory==true) || 
-    (now.dayOfTheWeek()==2 && dienstag_alarm2_memory==true && alarm2_ein_memory==true) || 
-    (now.dayOfTheWeek()==3 && mittwoch_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==4 && donnerstag_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==5 && freitag_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==6 && samstag_alarm2_memory==true && alarm2_ein_memory==true) ||
-    (now.dayOfTheWeek()==0 && sonntag_alarm2_memory==true && alarm2_ein_memory==true))
-    {
-      rtc.setAlarm2(DateTime(now.year(), now.month(), now.day(), alarm2_stunde_memory, alarm2_minute_memory, 0), DS3231_A2_Day); //Alarm when day (day of week), hours,inutes and seconds match 
-    }else{
-      rtc.clearAlarm(2);  //Alarm ausschalten
-      noTone(4);  //Signalton ausschalten
-    }
-    
-}
-
+}//++++++++++++++++++++++  Ende von loop  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 void HMI_Input_loeschen(char* HMI_Input_array)
 {
-  for(int i=0; i<7;i++) //Inputdatenarray löschen
+  for(uint8_t i=0; i<7;i++) //Inputdatenarray löschen
       {
         HMI_Input_array[i]=0;
       }
@@ -846,11 +760,11 @@ void displayTime (bool uhr_einstellen) {
 
   // Umwandlung der Zahlen in Char-Arrays
   sprintf(jahr, "%04d", now.year());
-  sprintf(monat, "%02d", now.month());
-  sprintf(tag, "%02d", now.day());
-  sprintf(stunde, "%02d", now.hour());
-  sprintf(minute, "%02d", now.minute());
-  sprintf(sekunde, "%02d", now.second());
+  sprintf(monat, convertToNumber, now.month());
+  sprintf(tag, convertToNumber, now.day());
+  sprintf(stunde, convertToNumber, now.hour());
+  sprintf(minute, convertToNumber, now.minute());
+  sprintf(sekunde, convertToNumber, now.second());
   strcpy(w_tag, wochentage[now.dayOfTheWeek()]);
   
   if(uhr_einstellen){
@@ -863,20 +777,20 @@ void displayTime (bool uhr_einstellen) {
     // Verkettung der Char-Arrays um Datum und die komplette Uhrzeit darzustellen
     sentTextState("m01", w_tag);
     
-    sprintf(printDatum, "%s.%s.%s", tag, monat, jahr);
-    sentTextState("m02", printDatum);
+    sprintf(printHelp, " %s.%s.%s ", tag, monat, jahr);
+    sentTextState("m02", printHelp);
 
-    sprintf(printUhrzeit, "%s:%s:%s", stunde, minute, sekunde);
-    sentTextState("m03", printUhrzeit);
+    sprintf(printHelp, "  %s:%s:%s  ", stunde, minute, sekunde);
+    sentTextState("m03", printHelp);
 
     dtostrf(rtc.getTemperature(), 6, 2, temperatur);
-    sprintf(printTemp, "%s Grad C", temperatur);
-    sentTextState("m04", printTemp);
+    sprintf(printHelp, "%s Grad C", temperatur);
+    sentTextState("m04", printHelp);
   }
   
 }
 
-boolean setModusActive(int newMod){
+boolean setModusActive(uint8_t newMod){
   if(modus==newMod){
     return 0;
   }
@@ -926,6 +840,11 @@ boolean setModusActive(int newMod){
       green=255;
       blue=255;
       break;
+    case 5: //Lichtkonfig-Seite
+      red=0;
+      green=0;
+      blue=0;
+      bright=0;
     default:
       break;
   }
@@ -989,25 +908,43 @@ void partymodus(){
 
 uint8_t LDR_Messung()
 {
-  char val[3];
+  
   helligkeit = analogRead(0); //Werte zwischen 0 und 1024
-  sprintf(val, "%02d", helligkeit);
-  sentTextState(lichtText,val);
+  if(page==1){
+    char val[3];
+    sprintf(val, convertToNumber, helligkeit);
+    sentTextState(lichtText,val);
+  }
+  
   //TODO: Bereiche anpassen, indem die Helligkeit gemessen wird.
-  if(helligkeit>750){
+  /*  //Range für Fabios Sensor
+  if(helligkeit>300){
     return 240;
-  }else if(helligkeit>300){
-    return 180;
   }else if(helligkeit>200){
-    return 150;
+    return 170;
   }else if(helligkeit>150){
-    return 120;
+    return 130;
   }else if(helligkeit>100){
     return 90;
   }else if(helligkeit>50){
     return 50;
   }else{
     return 0;
+  }
+  */
+    //Range für Flos Sensor
+  if(helligkeit>900){
+    return 0;
+  }else if(helligkeit>800){
+    return 50;
+  }else if(helligkeit>730){
+    return 90;
+  }else if(helligkeit>630){
+    return 130;
+  }else if(helligkeit>550){
+    return 150;
+  }else{
+    return 240;
   }
 }
 
@@ -1019,63 +956,59 @@ uint8_t Gestensensor()
 
   switch (gesture)
   {
+    case GES_NONE:{return 0;}
     case GES_FORWARD:
       {
         //deactivate Alarm
-          Signalgeber(false);
-          DisplayCommand("page 0");
-          page=0;
+        if(rtc.alarmFired(1)){
+          stopAlarm();
           return 1;
+        }
         break;
       }
 
-    case GES_BACKWARD:
-      {
-        //empty
-        break;
-      }
-
-    case GES_LEFT:
-      {
-        //empty
-        break;
-      }
+    case GES_BACKWARD:{break;}
+    case GES_LEFT:{break;}
 
     case GES_RIGHT:
       {
-         //Licht toggeln
-          if(hauptleuchte_an||indirektebeleuchtung_an){
-            hauptleuchte_an=false;
-            indirektebeleuchtung_an=false;
-          }else{
-            hauptleuchte_an=true;
-            indirektebeleuchtung_an=true;
-          }
-          refreshColours();
-          refreshColours();
-          return 1;
-        break;
+        if(page==1||page==6){
+          return 0;
+        }
+        //Licht toggeln
+        if(hauptleuchte_an||indirektebeleuchtung_an){
+          hauptleuchte_an=false;
+          indirektebeleuchtung_an=false;
+        }else{
+          hauptleuchte_an=true;
+          indirektebeleuchtung_an=true;
+        }
+        refreshColours();
+        refreshColours();
+        return 1;
       }
 
     case GES_UP:
       {
+        if(page==1||page==6){
+          return 0;
+        }
         //heller
         if(modus==3){
           mainBright=(mainBright>205)?255:mainBright+50;
           indBright=(indBright>205)?255:indBright+50;
         }else{
           bright=bright + 50;
-          if(bright > 255){
-            bright=255;
-          }
         }
         refreshColours();
         return 1;
-        break;
       }
 
     case GES_DOWN:
       {
+        if(page==1||page==6){
+          return 0;
+        }
         //dunkler
         if(modus==3){
           if(mainBright < 60){
@@ -1097,30 +1030,10 @@ uint8_t Gestensensor()
         }
         refreshColours();
         return 1;
-        break;
       }
-
-    case GES_CLOCKWISE:
-      {
-        //empty
-        break;
-      }
-
-    case GES_ANTICLOCKWISE:
-      {
-        //empty
-        break;
-      }
-
-    case GES_WAVE:
-      {
-        break;
-      }
-
-    case GES_NONE:
-      {
-        break;
-      }
+    case GES_CLOCKWISE:{break;}
+    case GES_ANTICLOCKWISE:{break;}
+    case GES_WAVE:{break;}
   }
   return 0;
 }
@@ -1128,12 +1041,17 @@ uint8_t Gestensensor()
 void Signalgeber(bool ton_an)
 {
   if(ton_an==true){
+    //uint8_t pulse=1;
     tone(4,264); // (pin, frequency, duration)
+    //while(pulse!=0){pulse++;    }
     delay(100);
+    //pulse=1;
     tone(4,547);
+    //while(pulse!=0){pulse++;}
     delay(100);
   }else{
     noTone(4);
+    delay(300);
   }
 }
 
@@ -1146,7 +1064,7 @@ void sentTextState(const char* textbox, const char* text)
 
 void DisplayCommand(const char* textbox)
 {
-  for(int i=0;i<2;i++){
+  for(uint8_t i=0;i<2;i++){
     Serial.print(textbox);
     Serial.write(0xFF);
     Serial.write(0xFF);
@@ -1156,8 +1074,35 @@ void DisplayCommand(const char* textbox)
 
 void sendValue(const char* object, uint8_t value){
   char buf[3];
-  sprintf(buf, "%02d", value);
+  sprintf(buf, convertToNumber, value);
   memset(&sendingBuffer[0], 0, sizeof(sendingBuffer));
   sprintf(sendingBuffer, "%s%s%s", object, ".val=", buf);
   DisplayCommand(sendingBuffer);
+  //Serial.println("");
+}
+
+void getSliderValue(const char* object){
+  memset(&sendingBuffer[0], 0, sizeof(sendingBuffer));
+  sprintf(sendingBuffer, "%s%s%s", "get ",object, ".val");
+  DisplayCommand(sendingBuffer);
+}
+
+void alarmOccured(uint8_t actualMinute){
+  if(!alarm_fired){
+    DisplayCommand("page 8");
+    page=8;
+    alarm_fired=true;
+  }
+  Signalgeber(true);
+  if(actualMinute==alarm1_timeout){
+    stopAlarm();    
+  }
+}
+
+void stopAlarm(){
+  rtc.clearAlarm(1);
+  alarm_fired=false;
+  DisplayCommand("page 0");
+  Signalgeber(false);
+  page=0;
 }
